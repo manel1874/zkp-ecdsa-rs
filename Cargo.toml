@@ -9,9 +9,11 @@ description = "Rust implementation of zkattest proof system"
 
 [dependencies]
 num-bigint = "0.2"
-secp256k1 = "0.7"
-openssl = { version = "0.10", features = ["ec"] }
+#secp256k1 = "0.7"
+#openssl = { version = "0.10", features = ["ec"] }
+openssl = "0.10.29"
 
-[lib]
-name = "zkattest_rs"
-crate-type = ["cdylib"]
+
+#[lib]
+#name = "zkattest_rs"
+#crate-type = ["cdylib"]
