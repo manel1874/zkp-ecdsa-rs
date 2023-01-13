@@ -147,7 +147,7 @@ fn main() {
 
      
     // Create a new P256 curve object
-    let group = EcGroup::from_curve_name(Nid::X9_62_PRIME256V1).unwrap();
+    let group = &*EcGroup::from_curve_name(Nid::X9_62_PRIME256V1).unwrap().as_ref();
 
     // Generate two poins randomly
     //let P1 = EcKey::generate(&group)?;
@@ -166,6 +166,5 @@ fn main() {
     println!("{}", res);
 
     let com1 = pedersen::Commitment::new(group, point, bign43);
-    let com2 = pedersen::Commitment::new(group, point, bign43);
 
 }

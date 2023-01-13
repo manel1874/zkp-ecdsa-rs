@@ -1,24 +1,31 @@
-use openssl::ec::{EcGroup, EcPoint};
+use openssl::ec::{EcGroup, EcGroupRef, EcPoint};
 use openssl::bn::{BigNum, BigNumContext};
 //use std::convert::TryFrom;
 
 pub struct Commitment {
-    g: EcGroup,
-    p: EcPoint,
-    r: BigNum,
+    g: &EcGroupRef,
+    p: &EcPointRef,
+    r: &BigNumRef,
 }
 
 
 impl Commitment {
 
-    pub fn new(g: EcGroup, p: EcPoint, r: BigNum) -> Self {
+    pub fn new(
+        g: &EcGroupRef,
+        p: &EcPointRef,
+        r: &BigNumRef,
+    ) -> Self {
         Commitment{ g, p, r }
     }
 
-    pub fn add(&self, c: &Commitment) -> Commitment {
+    pub fn add(
+        &self, 
+        c: &Commitment,
+    ) -> Commitment {
         // Set curve | TODO: improve this approach
-        let group_name = self.g.curve_name().unwrap();
-        let group = EcGroup::from_curve_name(group_name).unwrap();
+        //let group_name = self.g.curve_name().unwrap();
+        //let group = *EcGroup::from_curve_name(group_name).unwrap().as_ref();
         // Compute sum of points
         let mut ctx = BigNumContext::new().unwrap();
         let mut sum_p = EcPoint::new(&self.g).unwrap();
@@ -27,7 +34,7 @@ impl Commitment {
         let mut sum_r = BigNum::new().unwrap();
         sum_r.checked_add(&self.r, &c.r).unwrap();
 
-        Commitment::new(group, sum_p, sum_r)
+        Commitment::new(self.g, sum_p, sum_r)
     }
 
 
