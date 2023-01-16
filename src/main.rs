@@ -149,7 +149,7 @@ fn main() {
 
 
 
-    
+
     // ==========================  Testing units ==========================
 
     // Create a new P256 curve object
@@ -197,6 +197,7 @@ fn main() {
 
         println!("The result of adding commitments is {} = 86?", c1.r);
     }
+
 
     
 

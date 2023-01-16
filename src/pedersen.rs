@@ -1,9 +1,9 @@
 use openssl::ec::{EcGroup, EcGroupRef, EcPoint, EcPointRef};
-use openssl::bn::{BigNum, BigNumRef, BigNumContext};
+use openssl::bn::{BigNum, BigNumRef, BigNumContext, MsbOption};
 //use std::convert::TryFrom;
 
 pub struct Commitment<'a> {
-    pub g: &'a EcGroupRef,
+    pub group: &'a EcGroupRef,
     pub p: EcPoint,
     pub r: BigNum,
 }
@@ -12,11 +12,11 @@ pub struct Commitment<'a> {
 impl<'a> Commitment<'a> {
 
     pub fn new(
-        g: &'a EcGroupRef,
+        group: &'a EcGroupRef,
         p: EcPoint,
         r: BigNum,
     ) -> Self {
-        Commitment{ g, p, r }
+        Commitment{ group, p, r }
     }
     
 
@@ -26,8 +26,8 @@ impl<'a> Commitment<'a> {
         let mut ctx = BigNumContext::new().unwrap();
 
         // Update p: sum_p = self.p + c.p
-        let mut sum_p = EcPoint::new(&self.g).unwrap();
-        sum_p.add(&self.g, &self.p, &c.p, &mut ctx).unwrap();
+        let mut sum_p = EcPoint::new(&self.group).unwrap();
+        sum_p.add(&self.group, &self.p, &c.p, &mut ctx).unwrap();
         self.p = sum_p;
         
         // Update r: sum_r = self.r + c.r
@@ -43,13 +43,13 @@ impl<'a> Commitment<'a> {
         let mut ctx = BigNumContext::new().unwrap();
 
         // Update p: sum_p = self.p - c.p
-        let mut sub_p = EcPoint::new(&self.g).unwrap();
+        let mut sub_p = EcPoint::new(&self.group).unwrap();
         // // invert c.p
         let inv = BigNum::from_dec_str("-1").unwrap(); 
-        let mut neg_c_p = EcPoint::new(&self.g).unwrap();
-        neg_c_p.mul(&self.g, &self.p, &inv, &mut ctx).unwrap();
+        let mut neg_c_p = EcPoint::new(&self.group).unwrap();
+        neg_c_p.mul(&self.group, &self.p, &inv, &mut ctx).unwrap();
         // // add -c.p to it
-        sub_p.add(&self.g, &self.p, &neg_c_p, &mut ctx).unwrap();
+        sub_p.add(&self.group, &self.p, &neg_c_p, &mut ctx).unwrap();
         self.p = sub_p;
         
         // Update r: sum_r = self.r + c.r
@@ -65,8 +65,8 @@ impl<'a> Commitment<'a> {
         let mut ctx = BigNumContext::new().unwrap();
 
         // Update p: mul_p = k . self.p
-        let mut mul_p = EcPoint::new(&self.g).unwrap();
-        mul_p.mul(&self.g, &self.p, k, &mut ctx).unwrap();
+        let mut mul_p = EcPoint::new(&self.group).unwrap();
+        mul_p.mul(&self.group, &self.p, k, &mut ctx).unwrap();
         self.p = mul_p;
 
         // Update r: mul_r = k . self.r 
@@ -78,33 +78,48 @@ impl<'a> Commitment<'a> {
 
 }
 
-/* 
-impl Commitment {
-    fn new(p: EcPoint, r: BigInt) -> Self {
-        Commitment { p, r }
+
+
+pub struct PedersenParams<'a> {
+    c: &'a EcGroupRef,
+    g: EcPoint,
+    h: EcPoint,
+}
+
+
+impl<'a> PedersenParams<'a> {
+
+    pub fn new(
+        c: &'a EcGroupRef,
+        g: EcPoint,
+        h: EcPoint,
+    ) -> Self {
+        PedersenParams{ c, g, h }
     }
-    fn add(&self, c: &Commitment) -> Commitment {
-        let p = self.p.add(&c.p).unwrap();
-        let r = self.r.clone() + &c.r;
-        Commitment::new(p, r)
-    }
-    fn mul(&self, k: &BigInt) -> Commitment {
-        let sk = BigUint::from_bigint(k);
-        let sk = match sk {
-            Some(sk) => sk,
-            None => return Commitment::new(EcPoint::new(self.p.group()).unwrap(), BigInt::zero()),
-        };
-        let sk = EcScalar::from(sk);
-        let p = self.p.mul(&sk).unwrap();
-        let r = &self.r * k;
-        Commitment::new(p, r)
-    }
-    fn sub(&self, c: &Commitment) -> Commitment {
-        let p = self.p.sub(&c.p).unwrap();
-        let r = self.r.clone() - &c.r;
-        Commitment::new(p, r)
+
+    //pub fn eq(&self, o: &PedersenParams) -> bool {
+    //    self.c == o.c && self.g == o.g && self.h == 0.h
+    //}
+
+    pub fn commit(&self, input: &BigNum) {
+
+        // Random elements
+        let mut ctx = BigNumContext::new().unwrap();
+        let mut r = BigNum::new().unwrap();
+        let mut n_order = BigNum::new().unwrap();
+        &self.c.order(&mut n_order, &mut ctx).unwrap();
+        // Generates a 256-bit odd random number
+        let nbits = n_order.num_bits();
+
+        r.rand(nbits, MsbOption::MAYBE_ZERO, true);
+
+        
+        
     }
 }
+
+/* 
+
 
 struct PedersenParams {
     c: EcGroup,
