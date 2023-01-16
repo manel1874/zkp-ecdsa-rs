@@ -20,12 +20,13 @@ impl<'a> Commitment<'a> {
     }
     
 
-    /// Takes a commitment c and adds to the self
+    /// Takes a commitment c and adds to self
     pub fn add(&mut self, c: &Commitment) {
+
+        let mut ctx = BigNumContext::new().unwrap();
 
         // Update p: sum_p = self.p + c.p
         let mut sum_p = EcPoint::new(&self.g).unwrap();
-        let mut ctx = BigNumContext::new().unwrap();
         sum_p.add(&self.g, &self.p, &c.p, &mut ctx).unwrap();
         self.p = sum_p;
         
@@ -36,14 +37,20 @@ impl<'a> Commitment<'a> {
     }
 
 
-    /// Takes a commitment c and subs to the self
+    /// Takes a commitment c and subs to self
     pub fn sub(&mut self, c: &Commitment) {
 
-        // Update p: sum_p = self.p + c.p
-        let mut sum_p = EcPoint::new(&self.g).unwrap();
         let mut ctx = BigNumContext::new().unwrap();
-        sum_p.sub(&self.g, &self.p, &c.p, &mut ctx).unwrap();
-        self.p = sum_p;
+
+        // Update p: sum_p = self.p - c.p
+        let mut sub_p = EcPoint::new(&self.g).unwrap();
+        // // invert c.p
+        let inv = BigNum::from_dec_str("-1").unwrap(); 
+        let mut neg_c_p = EcPoint::new(&self.g).unwrap();
+        neg_c_p.mul(&self.g, &self.p, &inv, &mut ctx).unwrap();
+        // // add -c.p to it
+        sub_p.add(&self.g, &self.p, &neg_c_p, &mut ctx).unwrap();
+        self.p = sub_p;
         
         // Update r: sum_r = self.r + c.r
         let mut sum_r = BigNum::new().unwrap();
@@ -53,11 +60,12 @@ impl<'a> Commitment<'a> {
 
 
     /// Takes an integer k and multiplies the self by k
-    fn mul(&mut self, k: &BigNum) {
+    pub fn mul(&mut self, k: &BigNum) {
+
+        let mut ctx = BigNumContext::new().unwrap();
 
         // Update p: mul_p = k . self.p
         let mut mul_p = EcPoint::new(&self.g).unwrap();
-        let mut ctx = BigNumContext::new().unwrap();
         mul_p.mul(&self.g, &self.p, k, &mut ctx).unwrap();
         self.p = mul_p;
 

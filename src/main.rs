@@ -146,28 +146,59 @@ fn main() {
     println!("Hello, world!");
 
 
+
+
+
+    
+    // ==========================  Testing units ==========================
+
     // Create a new P256 curve object
     let group = EcGroup::from_curve_name(Nid::X9_62_PRIME256V1).unwrap();
 
-    // Generate two poins randomly
-    let point1 = EcPoint::new(&group).unwrap();
-    let point2 = EcPoint::new(&group).unwrap();
+    { // =========================== add ===============================
+        // Generate two poins randomly
+        let point1 = EcPoint::new(&group).unwrap();
+        let point2 = EcPoint::new(&group).unwrap();
 
-    let mut res = BigNum::new().unwrap();
-    let n43 = "43";
-    let bign43 = BigNum::from_dec_str(n43).unwrap();
-    let n2 = "2";
-    let bign2 = BigNum::from_dec_str(n2).unwrap();
+        let bign43 = BigNum::from_dec_str("43").unwrap();
+        let bign2 = BigNum::from_dec_str("2").unwrap();
+
+        let mut c1 = pedersen::Commitment::new(&group, point1, bign43);
+        let c2 = pedersen::Commitment::new(&group, point2, bign2);
+        c1.add(&c2);
+
+        println!("The result of adding commitments is {} = 45?", c1.r);
+    }
+
+    { // =========================== sub ===============================
+        // Generate two poins randomly
+        let point1 = EcPoint::new(&group).unwrap();
+        let point2 = EcPoint::new(&group).unwrap();
+
+        let bign43 = BigNum::from_dec_str("43").unwrap();
+        let bign2 = BigNum::from_dec_str("2").unwrap();
+
+        let mut c1 = pedersen::Commitment::new(&group, point1, bign43);
+        let c2 = pedersen::Commitment::new(&group, point2, bign2);
+        c1.sub(&c2);
+
+        println!("The result of adding commitments is {} = 41?", c1.r);
+    }
+
+    { // =========================== mul ===============================
+        // Generate two poins randomly
+        let point1 = EcPoint::new(&group).unwrap();
+
+        let bign43 = BigNum::from_dec_str("43").unwrap();
+        let bign2 = BigNum::from_dec_str("2").unwrap();
+
+        let mut c1 = pedersen::Commitment::new(&group, point1, bign43);
+        c1.mul(&bign2);
+
+        println!("The result of adding commitments is {} = 86?", c1.r);
+    }
+
     
-    res.checked_add(&bign43,&bign2).unwrap();
-    println!("The result of BigNum is {} = 45?", res);
-
-
-    let mut c1 = pedersen::Commitment::new(&group, point1, bign43);
-    let c2 = pedersen::Commitment::new(&group, point2, bign2);
-    c1.add(&c2);
-
-    println!("The result of adding commitments is {} = 45?", c1.r);
 
 
 }
