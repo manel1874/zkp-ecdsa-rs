@@ -145,26 +145,29 @@ use openssl::bn::{BigNum};
 fn main() {
     println!("Hello, world!");
 
-     
+
     // Create a new P256 curve object
-    let group = &*EcGroup::from_curve_name(Nid::X9_62_PRIME256V1).unwrap().as_ref();
+    let group = EcGroup::from_curve_name(Nid::X9_62_PRIME256V1).unwrap();
 
     // Generate two poins randomly
-    //let P1 = EcKey::generate(&group)?;
-    //let p2 = EcKey::generate(&group).unwrap();
-    //let p = group.generator();
-    let point = EcPoint::new(&group).unwrap();
+    let point1 = EcPoint::new(&group).unwrap();
+    let point2 = EcPoint::new(&group).unwrap();
 
-    let n43 = "43";
-    let n2 = "2";
     let mut res = BigNum::new().unwrap();
+    let n43 = "43";
     let bign43 = BigNum::from_dec_str(n43).unwrap();
+    let n2 = "2";
     let bign2 = BigNum::from_dec_str(n2).unwrap();
     
     res.checked_add(&bign43,&bign2).unwrap();
+    println!("The result of BigNum is {} = 45?", res);
 
-    println!("{}", res);
 
-    let com1 = pedersen::Commitment::new(group, point, bign43);
+    let mut c1 = pedersen::Commitment::new(&group, point1, bign43);
+    let c2 = pedersen::Commitment::new(&group, point2, bign2);
+    c1.add(&c2);
+
+    println!("The result of adding commitments is {} = 45?", c1.r);
+
 
 }

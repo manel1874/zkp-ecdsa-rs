@@ -1,46 +1,72 @@
-use openssl::ec::{EcGroup, EcGroupRef, EcPoint};
-use openssl::bn::{BigNum, BigNumContext};
+use openssl::ec::{EcGroup, EcGroupRef, EcPoint, EcPointRef};
+use openssl::bn::{BigNum, BigNumRef, BigNumContext};
 //use std::convert::TryFrom;
 
-pub struct Commitment {
-    g: &EcGroupRef,
-    p: &EcPointRef,
-    r: &BigNumRef,
+pub struct Commitment<'a> {
+    pub g: &'a EcGroupRef,
+    pub p: EcPoint,
+    pub r: BigNum,
 }
 
 
-impl Commitment {
+impl<'a> Commitment<'a> {
 
     pub fn new(
-        g: &EcGroupRef,
-        p: &EcPointRef,
-        r: &BigNumRef,
+        g: &'a EcGroupRef,
+        p: EcPoint,
+        r: BigNum,
     ) -> Self {
         Commitment{ g, p, r }
     }
+    
 
-    pub fn add(
-        &self, 
-        c: &Commitment,
-    ) -> Commitment {
-        // Set curve | TODO: improve this approach
-        //let group_name = self.g.curve_name().unwrap();
-        //let group = *EcGroup::from_curve_name(group_name).unwrap().as_ref();
-        // Compute sum of points
-        let mut ctx = BigNumContext::new().unwrap();
+    /// Takes a commitment c and adds to the self
+    pub fn add(&mut self, c: &Commitment) {
+
+        // Update p: sum_p = self.p + c.p
         let mut sum_p = EcPoint::new(&self.g).unwrap();
+        let mut ctx = BigNumContext::new().unwrap();
         sum_p.add(&self.g, &self.p, &c.p, &mut ctx).unwrap();
-        // Compute sum of random values
+        self.p = sum_p;
+        
+        // Update r: sum_r = self.r + c.r
         let mut sum_r = BigNum::new().unwrap();
         sum_r.checked_add(&self.r, &c.r).unwrap();
-
-        Commitment::new(self.g, sum_p, sum_r)
+        self.r = sum_r;
     }
 
 
-    //fn mul()
+    /// Takes a commitment c and subs to the self
+    pub fn sub(&mut self, c: &Commitment) {
 
-    //fn sub()
+        // Update p: sum_p = self.p + c.p
+        let mut sum_p = EcPoint::new(&self.g).unwrap();
+        let mut ctx = BigNumContext::new().unwrap();
+        sum_p.sub(&self.g, &self.p, &c.p, &mut ctx).unwrap();
+        self.p = sum_p;
+        
+        // Update r: sum_r = self.r + c.r
+        let mut sum_r = BigNum::new().unwrap();
+        sum_r.checked_sub(&self.r, &c.r).unwrap();
+        self.r = sum_r;
+    }
+
+
+    /// Takes an integer k and multiplies the self by k
+    fn mul(&mut self, k: &BigNum) {
+
+        // Update p: mul_p = k . self.p
+        let mut mul_p = EcPoint::new(&self.g).unwrap();
+        let mut ctx = BigNumContext::new().unwrap();
+        mul_p.mul(&self.g, &self.p, k, &mut ctx).unwrap();
+        self.p = mul_p;
+
+        // Update r: mul_r = k . self.r 
+        let mut mul_r = BigNum::new().unwrap();
+        mul_r.checked_mul(&self.r, k, &mut ctx).unwrap();
+        self.r = mul_r;
+
+    }
 
 }
 
