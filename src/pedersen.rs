@@ -91,7 +91,8 @@ impl<'a> PedersenParams<'a> {
 
     pub fn new(
         c: &'a EcGroupRef,
-        g: EcPoint,
+        g: EcPoint, // Note:: currently g is not being used because it is taken 
+                    //        the generator of curve c.
         h: EcPoint,
     ) -> Self {
         PedersenParams{ c, g, h }
@@ -101,21 +102,38 @@ impl<'a> PedersenParams<'a> {
     //    self.c == o.c && self.g == o.g && self.h == 0.h
     //}
 
-    pub fn commit(&self, input: &BigNum) {
+    pub fn commit(&self, input: &BigNum) -> Commitment {
 
-        // Random elements
         let mut ctx = BigNumContext::new().unwrap();
+
+        // Random element
         let mut r = BigNum::new().unwrap();
         let mut n_order = BigNum::new().unwrap();
-        &self.c.order(&mut n_order, &mut ctx).unwrap();
+        let _ = &self.c.order(&mut n_order, &mut ctx).unwrap();
         // Generates a 256-bit odd random number
         let nbits = n_order.num_bits();
 
-        r.rand(nbits, MsbOption::MAYBE_ZERO, true);
+        r.rand(nbits, MsbOption::MAYBE_ZERO, true).unwrap();
 
+        // Computes g * input + h * r, storing the result in self.
+        let mut p = EcPoint::new(&self.c).unwrap();
+        p.mul_full(
+            &self.c, 
+            input,
+            &self.h,
+            &r,
+            &mut ctx).unwrap();
         
-        
+        Commitment{group: &self.c, p, r)
     }
+}
+
+
+fn generate_pedersen_params(c: &EcGroupRef) -> PedersenParams {
+    let g = c.generator();
+    let r = BigInt::rand(256);
+    let h = g.mul(&r).unwrap();
+    PedersenParams::new(c.clone(), g.clone(), h)
 }
 
 /* 

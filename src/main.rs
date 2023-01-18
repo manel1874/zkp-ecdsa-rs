@@ -150,13 +150,13 @@ fn main() {
 
 
 
-    // ==========================  Testing units ==========================
+    // ========================== Testing units ==========================
 
     // Create a new P256 curve object
     let group = EcGroup::from_curve_name(Nid::X9_62_PRIME256V1).unwrap();
 
     { // =========================== add ===============================
-        // Generate two poins randomly
+        // Generate two points randomly
         let point1 = EcPoint::new(&group).unwrap();
         let point2 = EcPoint::new(&group).unwrap();
 
@@ -171,7 +171,7 @@ fn main() {
     }
 
     { // =========================== sub ===============================
-        // Generate two poins randomly
+        // Generate two points randomly
         let point1 = EcPoint::new(&group).unwrap();
         let point2 = EcPoint::new(&group).unwrap();
 
@@ -186,7 +186,7 @@ fn main() {
     }
 
     { // =========================== mul ===============================
-        // Generate two poins randomly
+        // Generate one point randomly
         let point1 = EcPoint::new(&group).unwrap();
 
         let bign43 = BigNum::from_dec_str("43").unwrap();
@@ -199,6 +199,15 @@ fn main() {
     }
 
 
+    {
+        let g = EcPoint::new(&group).unwrap();
+        let h = EcPoint::new(&group).unwrap();
+        let pp = pedersen::PedersenParams::new(&group, g, h);
+        
+        
+        let bign101 = BigNum::from_dec_str("101").unwrap();
+        pp.commit(&bign101);
+    }
     
 
 
