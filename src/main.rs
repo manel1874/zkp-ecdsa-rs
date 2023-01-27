@@ -139,15 +139,12 @@ pub mod pedersen;
 pub mod equality;
 
 use openssl::nid::Nid;
-use openssl::bn::{BigNum};
 
+use openssl::bn::{BigNum, BigNumRef, BigNumContext, MsbOption};
 
 
 fn main() {
     println!("Hello, world!");
-
-
-
 
 
 
@@ -156,6 +153,7 @@ fn main() {
     // Create a new P256 curve object
     let group = EcGroup::from_curve_name(Nid::X9_62_PRIME256V1).unwrap();
 
+    // ========================== pedersen.rs ==========================
     { // =========================== add ===============================
         // Generate two points randomly
         let point1 = EcPoint::new(&group).unwrap();
@@ -205,7 +203,6 @@ fn main() {
         let h = EcPoint::new(&group).unwrap();
         let pp = pedersen::PedersenParams::new(&group, g, h);
         
-        
         let bign101 = BigNum::from_dec_str("101").unwrap();
         pp.commit(&bign101);
     }
@@ -214,11 +211,48 @@ fn main() {
     { // ================= generate_pedersen_params ====================
         let pp = pedersen::generate_pedersen_params(&group);
         
-        
         let bign101 = BigNum::from_dec_str("101").unwrap();
         pp.commit(&bign101);
     }
+
+    { // =========================== eq ===============================
+        let pp_1 = pedersen::generate_pedersen_params(&group);
+        let pp_2 = pedersen::generate_pedersen_params(&group);
+    
+        let bool_false = pp_1.eq(&pp_2);
+        let bool_true = pp_1.eq(&pp_1);
+
+        assert_eq!(bool_false, false);
+        assert_eq!(bool_true, true);
+    }
     
 
+    // ========================== equality.rs ==========================
+
+    {
+        
+        let g = group.generator();
+        let r = pedersen::generate_random().unwrap();
+    
+        let mut ctx = BigNumContext::new().unwrap();
+        let mut h = EcPoint::new(&group).unwrap();
+        h.mul(&group, &g, &r, &mut ctx).unwrap();
+
+        equality::hash_points("SHA256", &group, &[g.to_owned(&group).unwrap(), h]);
+
+
+        /*
+        DOING: working on equality.rs moduler.
+
+        1. prove_equality function [ ] 
+            |
+            |-> requires hash_points function that takes several points and returns a challenge
+                (Fiat-Shamir implementation for NI case). [ ] <-- Here (at equality.rs:26)
+        
+        */
+
+
+
+    }
 
 }

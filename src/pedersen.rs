@@ -99,9 +99,13 @@ impl<'a> PedersenParams<'a> {
         PedersenParams{ c, g, h }
     }
 
-    //pub fn eq(&self, o: &PedersenParams) -> bool {
-    //    self.c == o.c && self.g == o.g && self.h == 0.h
-    //}
+    pub fn eq(&self, o: &PedersenParams) -> bool {
+
+        let mut ctx = BigNumContext::new().unwrap();
+        
+        self.g.eq(self.c, &o.g, &mut ctx).unwrap() &&
+        self.h.eq(self.c, &o.h, &mut ctx).unwrap() 
+    }
 
     pub fn commit(&self, input: &BigNum) -> Commitment {
 
@@ -152,5 +156,4 @@ pub fn generate_pedersen_params(c: &EcGroupRef) -> PedersenParams {
 
     PedersenParams::new(&c, g_deref, h)
 }
-
 
