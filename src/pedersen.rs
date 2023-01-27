@@ -1,5 +1,6 @@
 use openssl::ec::{EcGroup, EcGroupRef, EcPoint, EcPointRef};
 use openssl::bn::{BigNum, BigNumRef, BigNumContext, MsbOption};
+use openssl::error::ErrorStack;
 //use std::convert::TryFrom;
 
 pub struct Commitment<'a> {
@@ -124,52 +125,32 @@ impl<'a> PedersenParams<'a> {
             &r,
             &mut ctx).unwrap();
         
-        Commitment{group: &self.c, p, r)
+        Commitment{group: &self.c, p, r}
     }
 }
 
 
-fn generate_pedersen_params(c: &EcGroupRef) -> PedersenParams {
+pub fn generate_random() -> Result< BigNum, ErrorStack > {
+    let mut big = BigNum::new().unwrap();
+ 
+    // Generates a 128-bit odd random number
+    big.rand(128, MsbOption::MAYBE_ZERO, true);
+    Ok(big)
+ }
+
+
+
+pub fn generate_pedersen_params(c: &EcGroupRef) -> PedersenParams {
     let g = c.generator();
-    let r = BigInt::rand(256);
-    let h = g.mul(&r).unwrap();
-    PedersenParams::new(c.clone(), g.clone(), h)
+    let r = generate_random().unwrap();
+
+    let mut ctx = BigNumContext::new().unwrap();
+    let mut h = EcPoint::new(&c).unwrap();
+    h.mul(&c, &g, &r, &mut ctx).unwrap();
+
+    let g_deref = g.to_owned(c).unwrap();
+
+    PedersenParams::new(&c, g_deref, h)
 }
 
-/* 
 
-
-struct PedersenParams {
-    c: EcGroup,
-    g: EcPoint,
-    h: EcPoint,
-}
-
-impl PedersenParams {
-    fn new(c: EcGroup, g: EcPoint, h: EcPoint) -> Self {
-        PedersenParams { c, g, h }
-    }
-    fn eq(&self, o: &PedersenParams) -> bool {
-        self.c == o.c && self.g == o.g && self.h == o.h
-    }
-    fn commit(&self, input: &BigInt) -> Commitment {
-        let r = BigInt::rand(256);
-        let v = BigUint::from_bigint(input);
-        let v = match v {
-            Some(v) => v,
-            None => return Commitment::new(EcPoint::new(self.c).unwrap(), BigInt::zero()),
-        };
-        let v = EcScalar::from(v);
-        let p = self.h.mul_with_scalars(&[&r, &v]).unwrap();
-        Commitment::new(p, r)
-    }
-}
-
-fn generate_pedersen_params(c: &EcGroup, g: Option<&EcPoint>) -> PedersenParams {
-    let g = g.unwrap_or_else(|| c.generator().unwrap());
-    let r = BigInt::rand(256);
-    let h = g.mul(&r).unwrap();
-    PedersenParams::new(c.clone(), g.clone(), h)
-}
-
-*/

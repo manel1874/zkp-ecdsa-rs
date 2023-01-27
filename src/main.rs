@@ -199,10 +199,19 @@ fn main() {
     }
 
 
-    {
+    { // =========================== new ===============================
         let g = EcPoint::new(&group).unwrap();
         let h = EcPoint::new(&group).unwrap();
         let pp = pedersen::PedersenParams::new(&group, g, h);
+        
+        
+        let bign101 = BigNum::from_dec_str("101").unwrap();
+        pp.commit(&bign101);
+    }
+
+
+    { // ================= generate_pedersen_params ====================
+        let pp = pedersen::generate_pedersen_params(&group);
         
         
         let bign101 = BigNum::from_dec_str("101").unwrap();
