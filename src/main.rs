@@ -136,6 +136,7 @@ async fn prove_point_add(
 // use std::error::Error;
 use openssl::ec::{EcGroup, EcPoint};
 pub mod pedersen;
+pub mod equality;
 
 use openssl::nid::Nid;
 use openssl::bn::{BigNum};
