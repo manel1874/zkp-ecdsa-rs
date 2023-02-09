@@ -135,12 +135,12 @@ async fn prove_point_add(
 
 // use std::error::Error;
 use openssl::ec::{EcGroup, EcPoint};
+use openssl::nid::Nid;
+use openssl::bn::{BigNum, BigNumRef, BigNumContext, MsbOption};
+use openssl::hash::MessageDigest;
+
 pub mod pedersen;
 pub mod equality;
-
-use openssl::nid::Nid;
-
-use openssl::bn::{BigNum, BigNumRef, BigNumContext, MsbOption};
 
 
 fn main() {
@@ -233,13 +233,13 @@ fn main() {
         
         let g = group.generator();
         let r = pedersen::generate_random().unwrap();
-    
+        // println!("Size is: {:?}", r);
         let mut ctx = BigNumContext::new().unwrap();
         let mut h = EcPoint::new(&group).unwrap();
         h.mul(&group, &g, &r, &mut ctx).unwrap();
 
-        equality::hash_points("SHA256", &group, &[g.to_owned(&group).unwrap(), h]);
-
+        let hash_value = equality::hash_points(MessageDigest::sha256(), &group, &[g.to_owned(&group).unwrap(), h]).unwrap();
+        println!("hash_value is: {:?}", hash_value);
 
         /*
         DOING: working on equality.rs moduler.

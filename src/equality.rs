@@ -6,6 +6,7 @@
 use openssl::ec::{EcGroup, EcGroupRef, EcPoint, EcPointRef, PointConversionForm};
 use openssl::bn::{BigNum, BigNumRef, BigNumContext, MsbOption};
 use openssl::error::ErrorStack;
+use openssl::hash::{hash, MessageDigest};
 
 
 
@@ -14,31 +15,34 @@ use std::convert::TryFrom;
 use std::future::Future;
 use std::pin::Pin;
 
-pub fn hash_points(hash_id: &str, group: &EcGroupRef, points: &[EcPoint]){ //-> impl Future<Output = Result<u128, ()>> {
+pub fn hash_points(hash_id: MessageDigest, group: &EcGroupRef, points: &[EcPoint]) -> Result< BigNum, ErrorStack > {  //-> impl Future<Output = Result<u128, ()>> {
     
     //async move {
 
         let mut ctx = BigNumContext::new().unwrap();
 
+        // bytes_points is a vec< [g.to_bytes, h.to_bytes]>
         let bytes_points: Vec<_> = points.iter().map(|p| p.to_bytes(group, PointConversionForm::COMPRESSED, &mut ctx).unwrap()).collect();
+
+        // flatten bytes_points
+
+        /* ====== as in .ts version
+                
+        // total size of bytes_points to create a new bytes vec
+
         let size : usize = bytes_points.iter().map(|b| b.len()).sum();
-
-        println!("Size is: {:?}", size);
-
-        /* 
-        
-        
-        let size = bytes_points.iter().map(|b| b.len()).sum(); [x]
         let mut bytes = vec![0u8; size].into_boxed_slice();
         let mut offset = 0;
+
         for bp in &bytes_points {
             bytes[offset..offset + bp.len()].copy_from_slice(bp);
             offset += bp.len();
         }
-        let hash = openssl::hash::hash(hash_id, &bytes[..]).map_err(|_| ())?;
-        let hash = u128::try_from(&hash[..10]).map_err(|_| ())?;
-        Ok(hash)
-        */
+        ==================================*/
+        let flatten_bytes: Vec<_> = bytes_points.into_iter().flat_map(|x| x).collect();
+
+        let hash = openssl::hash::hash(hash_id, &flatten_bytes[..]).map_err(|_| ()).unwrap();
+        BigNum::from_slice(&hash[..10])
     //}
 }
 
