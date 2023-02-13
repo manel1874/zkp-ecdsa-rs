@@ -8,14 +8,22 @@ use openssl::bn::{BigNum, BigNumRef, BigNumContext, MsbOption};
 use openssl::error::ErrorStack;
 use openssl::hash::{hash, MessageDigest};
 
+use crate::pedersen::{Commitment, PedersenParams, generate_random};
 
 
 
-use std::convert::TryFrom;
-use std::future::Future;
-use std::pin::Pin;
+//use std::convert::TryFrom;
+//use std::future::Future;
+//use std::pin::Pin;
 
-pub fn hash_points(hash_id: MessageDigest, group: &EcGroupRef, points: &[EcPoint]) -> Result< BigNum, ErrorStack > {  //-> impl Future<Output = Result<u128, ()>> {
+/*
+
+            UTIL::groups
+
+*/
+
+
+pub fn hash_points(hash_id: MessageDigest, group: &EcGroupRef, points: &[&EcPoint]) -> Result< BigNum, ErrorStack > {  //-> impl Future<Output = Result<u128, ()>> {
     
     //async move {
 
@@ -46,21 +54,6 @@ pub fn hash_points(hash_id: MessageDigest, group: &EcGroupRef, points: &[EcPoint
     //}
 }
 
-/* 
-const bytesPoints = points.map((p) => p.toBytes()),
-size = bytesPoints.map((b) => b.length).reduce((sum, cur) => sum + cur),
-bytes = new Uint8Array(size)
-let offset = 0
-for (const bP of bytesPoints) {
-bytes.set(bP, offset)
-offset += bP.length
-}
-const buf = await crypto.subtle.digest(hashID, bytes),
-hash = new Uint8Array(buf)
-return fromBytes(hash.slice(0, 10))
-retunr let bignum = BigNum::from_slice(&[0x12, 0x00, 0x34]).unwrap();    ---> my solutions
-*/
-
 
 
 //#[derive(Serialize, Deserialize)]
@@ -85,6 +78,68 @@ impl<'a> EqualityProof<'a> {
         self.t_r2 == other.t_r2
     }
 }
+
+
+fn prove_equality<'a>(
+    params: &'a PedersenParams<'a>,
+    x: BigNum,
+    C1: Commitment,
+    C2: Commitment
+)-> EqualityProof<'a> {
+
+    let mut ctx = BigNumContext::new().unwrap();
+
+    let mut order_curve = BigNum::new().unwrap();
+    params.c.order(&mut order_curve, &mut ctx);
+    let k = generate_random(&order_curve).unwrap(); //Scalar::random(&mut rand::thread_rng());
+
+    let A1 = params.commit(&k);
+    let A2 = params.commit(&k);
+
+    let c = hash_points(MessageDigest::sha256(), params.c, &[&C1.p, &C2.p, &A1.p, &A2.p]).unwrap();
+
+    let mut cc = BigNum::new().unwrap();
+    cc.nnmod(&c, &order_curve, &mut ctx);
+    let mut xx = BigNum::new().unwrap();
+    xx.nnmod(&x, &order_curve, &mut ctx);
+    let mut kk = BigNum::new().unwrap();
+    kk.nnmod(&k, &order_curve, &mut ctx);
+
+
+    // Compute  t_x = k - cx
+    let mut cc_times_xx = BigNum::new().unwrap();
+    cc_times_xx.checked_mul(&cc, &xx, &mut ctx).unwrap();
+    let mut t_x = BigNum::new().unwrap();
+    t_x.checked_sub(&kk, &cc_times_xx).unwrap();
+    
+    // Compute t_r1 = s1 - c r1
+    let mut cc_times_r1 = BigNum::new().unwrap();
+    cc_times_r1.checked_mul(&cc, &C1.r, &mut ctx).unwrap();
+    let mut t_r1 = BigNum::new().unwrap();
+    t_r1.checked_sub(&A1.r, &cc_times_r1).unwrap();
+
+    // Compute t_r2 = s2 - c r2
+    let mut cc_times_r2 = BigNum::new().unwrap();
+    cc_times_r2.checked_mul(&cc, &C2.r, &mut ctx).unwrap();
+    let mut t_r2 = BigNum::new().unwrap();
+    t_r2.checked_sub(&A2.r, &cc_times_r2).unwrap();
+
+    EqualityProof {
+        group: params.c,
+        a_1: A1.p,
+        a_2: A2.p,
+        t_x: t_x,
+        t_r1: t_r1,
+        t_r2: t_r2,
+    }
+
+
+}
+
+
+
+
+
 
 /* 
 

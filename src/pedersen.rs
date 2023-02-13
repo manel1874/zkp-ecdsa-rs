@@ -53,10 +53,10 @@ impl<'a> Commitment<'a> {
         sub_p.add(&self.group, &self.p, &neg_c_p, &mut ctx).unwrap();
         self.p = sub_p;
         
-        // Update r: sum_r = self.r + c.r
-        let mut sum_r = BigNum::new().unwrap();
-        sum_r.checked_sub(&self.r, &c.r).unwrap();
-        self.r = sum_r;
+        // Update r: sum_r = self.r - c.r
+        let mut sub_r = BigNum::new().unwrap();
+        sub_r.checked_sub(&self.r, &c.r).unwrap();
+        self.r = sub_r;
     }
 
 
@@ -65,12 +65,12 @@ impl<'a> Commitment<'a> {
 
         let mut ctx = BigNumContext::new().unwrap();
 
-        // Update p: mul_p = k . self.p
+        // Update p: mul_p = k * self.p
         let mut mul_p = EcPoint::new(&self.group).unwrap();
         mul_p.mul(&self.group, &self.p, k, &mut ctx).unwrap();
         self.p = mul_p;
 
-        // Update r: mul_r = k . self.r 
+        // Update r: mul_r = k * self.r 
         let mut mul_r = BigNum::new().unwrap();
         mul_r.checked_mul(&self.r, k, &mut ctx).unwrap();
         self.r = mul_r;
@@ -82,9 +82,9 @@ impl<'a> Commitment<'a> {
 
 
 pub struct PedersenParams<'a> {
-    c: &'a EcGroupRef,
-    g: EcPoint,
-    h: EcPoint,
+    pub c: &'a EcGroupRef,
+    pub g: EcPoint,
+    pub h: EcPoint,
 }
 
 
@@ -133,22 +133,38 @@ impl<'a> PedersenParams<'a> {
     }
 }
 
+/*
 
-pub fn generate_random() -> Result< BigNum, ErrorStack > {
+        UTIL::groups
+
+*/
+pub fn generate_random(order_curve: &BigNum) -> Result< BigNum, ErrorStack > {
+    /* ------ old version --------
     let mut big = BigNum::new().unwrap();
  
     // Generates a 128-bit odd random number
     big.rand(128, MsbOption::MAYBE_ZERO, true);
-    Ok(big)
+    */
+
+    let mut big_rnd = BigNum::new().unwrap();
+    order_curve.rand_range(&mut big_rnd);
+
+    Ok(big_rnd)
  }
 
 
 
 pub fn generate_pedersen_params(c: &EcGroupRef) -> PedersenParams {
-    let g = c.generator();
-    let r = generate_random().unwrap();
-
+    
     let mut ctx = BigNumContext::new().unwrap();
+    
+    let g = c.generator();
+
+    let mut order_curve = BigNum::new().unwrap();
+    c.order(&mut order_curve, &mut ctx);
+    let r = generate_random(&order_curve).unwrap();
+
+    
     let mut h = EcPoint::new(&c).unwrap();
     h.mul(&c, &g, &r, &mut ctx).unwrap();
 

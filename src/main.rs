@@ -231,14 +231,20 @@ fn main() {
 
     {
         
-        let g = group.generator();
-        let r = pedersen::generate_random().unwrap();
-        // println!("Size is: {:?}", r);
         let mut ctx = BigNumContext::new().unwrap();
+
+        let g = group.generator();
+        
+        let mut order_curve = BigNum::new().unwrap();
+        group.order(&mut order_curve, &mut ctx);
+        let r = pedersen::generate_random(&order_curve).unwrap();
+
+        // println!("Size is: {:?}", r);
+        
         let mut h = EcPoint::new(&group).unwrap();
         h.mul(&group, &g, &r, &mut ctx).unwrap();
 
-        let hash_value = equality::hash_points(MessageDigest::sha256(), &group, &[g.to_owned(&group).unwrap(), h]).unwrap();
+        let hash_value = equality::hash_points(MessageDigest::sha256(), &group, &[&g.to_owned(&group).unwrap(), &h]).unwrap();
         println!("hash_value is: {:?}", hash_value);
 
         /*
