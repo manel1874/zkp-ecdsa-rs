@@ -8,7 +8,8 @@ use openssl::bn::{BigNum, BigNumRef, BigNumContext, MsbOption};
 use openssl::error::ErrorStack;
 use openssl::hash::{hash, MessageDigest};
 
-use crate::pedersen::{Commitment, PedersenParams, generate_random};
+use crate::commit::pedersen::{Commitment, PedersenParams, generate_random};
+use crate::curves::multimult;
 
 
 
@@ -79,8 +80,15 @@ impl<'a> EqualityProof<'a> {
     }
 }
 
-
-fn prove_equality<'a>(
+/**
+ * ZK(x, r1, r2: C1 = xG + r1H and C2 = xG + r2H)
+ *
+ * @param params
+ * @param x
+ * @param C1
+ * @param C2
+ */
+pub fn prove_equality<'a>(
     params: &'a PedersenParams<'a>,
     x: BigNum,
     C1: Commitment,
@@ -133,8 +141,33 @@ fn prove_equality<'a>(
         t_r2: t_r2,
     }
 
-
 }
+/*
+pub fn verify_equality<'a>(
+    params: &'a PedersenParams<'a>,
+    C1: EcPoint,
+    C2: EcPoint,
+    pi: &'a EqualityProof<'a>
+) -> bool {
+    
+}
+
+
+
+export async function verifyEquality(
+    params: PedersenParams,
+    C1: Group.Point,
+    C2: Group.Point,
+    pi: EqualityProof
+): Promise<boolean> {
+    const multi = new MultiMult(params.c),
+        ok = await aggregateEquality(params, C1, C2, pi, multi)
+    if (!ok) {
+        return false
+    }
+    return multi.evaluate().isIdentity()
+}
+*/
 
 
 

@@ -139,8 +139,11 @@ use openssl::nid::Nid;
 use openssl::bn::{BigNum, BigNumRef, BigNumContext, MsbOption};
 use openssl::hash::MessageDigest;
 
-pub mod pedersen;
-pub mod equality;
+mod commit; 
+mod curves;
+
+pub use crate::commit::{pedersen, equality};
+
 
 
 fn main() {
