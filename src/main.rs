@@ -250,18 +250,12 @@ fn main() {
         let hash_value = equality::hash_points(MessageDigest::sha256(), &group, &[&g.to_owned(&group).unwrap(), &h]).unwrap();
         println!("hash_value is: {:?}", hash_value);
 
-        /*
-        DOING: working on equality.rs moduler.
+    }
 
-        1. prove_equality function [ ] 
-            |
-            |-> requires hash_points function that takes several points and returns a challenge
-                (Fiat-Shamir implementation for NI case). [ ] <-- Here (at equality.rs:26)
-        
-        */
-
-
-
+    {
+        let g = EcPoint::new(&group).unwrap();
+        let infinity = g.is_infinity(&group);
+        println!("EcPoint initialized at infinity: {}", infinity);
     }
 
 }
