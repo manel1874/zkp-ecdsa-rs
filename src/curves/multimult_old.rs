@@ -3,15 +3,13 @@ use std::cmp::Ordering;
 use openssl::ec::{EcGroup, EcGroupRef, EcPoint, EcPointRef, PointConversionForm};
 use openssl::bn::{BigNum, BigNumContext};
 
-use crate::commit::pedersen::generate_random;
-
-pub struct Pair {
-    pub pt: EcPoint,
+pub struct Pair<'a> {
+    pub pt: &'a mut EcPointRef,
     pub scalar: BigNum
 }
 
-impl Pair {
-    pub fn new(pt: EcPoint, scalar: BigNum) -> Self {
+impl<'a> Pair<'a> {
+    pub fn new(pt: &'a mut EcPointRef, scalar: BigNum) -> Self {
         Pair { pt, scalar }
     }
 
@@ -21,15 +19,15 @@ impl Pair {
 }
 
 
-pub struct Ptidx {
-    pub pt: EcPoint,
+pub struct Ptidx<'a> {
+    pub pt: &'a EcPointRef,
     pub idx: usize
 }
 
 pub struct MultiMult<'a> {
-    pub group: &'a EcGroupRef,
-    pub pairs: Vec<Pair>,
-    pub known: Vec<Ptidx>,
+    group: &'a EcGroupRef,
+    pairs: Vec<Pair<'a>>,
+    known: Vec<Ptidx<'a>>,
 }
 
 
@@ -43,29 +41,36 @@ impl<'a> MultiMult<'a> {
         }
     }
 
-    pub fn add_known(&mut self, pt: EcPoint) {
+    pub fn add_known(&mut self, pt: &'a mut EcPointRef) {
         
-        is_compat_point(&pt, self.group);
-
         let mut ctx = BigNumContext::new().unwrap();
+        
+        // is compatible point
+        let compatible_point = pt.is_on_curve(self.group, &mut ctx).unwrap();
+        assert!(!compatible_point, "point not compatible");
         
         let present = self.known.iter().any(|x| pt.eq(self.group, &x.pt, &mut ctx).unwrap());
         if !present {
             let new_scalar = BigNum::from_dec_str("0").unwrap();
-            let new_pair = Pair::new( pt.to_owned(&self.group).unwrap(), new_scalar );
+            let new_pair = Pair::new( pt, new_scalar );
             let new_idx = self.pairs.len();
 
             self.pairs.push(new_pair);
-            self.known.push(Ptidx { pt: pt.to_owned(&self.group).unwrap(), idx: new_idx });
+            self.known.push(Ptidx { pt: pt, idx: new_idx });
         }
     }
 
-    pub fn insert(&mut self, pt: EcPoint, s: BigNum) {
+    pub fn insert(&mut self, pt: &'a mut EcPointRef, s: BigNum) {
         
-        is_compat_point(&pt, self.group);
-        is_compat_scalar(&s, self.group);
-
         let mut ctx = BigNumContext::new().unwrap();
+        // is compatible point
+        let compatible_point = pt.is_on_curve(self.group, &mut ctx).unwrap();
+        assert!(!compatible_point, "point not compatible");
+        // is compatible scalar
+        let mut order_curve = BigNum::new().unwrap();
+        self.group.order(&mut order_curve, &mut ctx);
+        let compatible_scalar = s <= order_curve;
+        assert!(!compatible_scalar, "scalar not compatible");
 
         if let Some(matched_idx) = self.known.iter().position(|x| pt.eq(self.group, &x.pt, &mut ctx).unwrap()) {
             
@@ -131,25 +136,47 @@ impl<'a> MultiMult<'a> {
                 
             }
             
-             
+           
             // c_scalar = a.s - b.s
             let mut c_scalar = BigNum::new().unwrap();
             c_scalar.checked_sub(&a.scalar, &b.scalar).unwrap();
-            let c = Pair::new(a.pt.to_owned(&self.group).unwrap(), c_scalar); 
+            let c = Pair::new(a.pt, c_scalar); 
 
             // d_pt = b.pt + a.pt
             let mut d_pt = EcPoint::new(&self.group).unwrap();
             d_pt.add(&self.group, &b.pt, &a.pt, &mut ctx).unwrap();
             self.pairs[0].pt = d_pt;
             
-            if c.scalar.ucmp(&BigNum::from_u32(0).unwrap()) != Ordering::Equal {
-                self.pairs.push(c);
-                let l = self.pairs.len();
-                bubble_up(&mut self.pairs, l);
-            }
+            //let d = Pair::new(&d_pt, b.scalar);
+
             
+            
+            return EcPoint::new(&self.group).unwrap();
         }
 
+        
+        /*
+
+        heapify(&mut self.pairs);
+        loop {
+            if self.pairs.len() == 1 {
+                let a = &self.pairs[0];
+                return a.pt.mul(&a.scalar);
+            }
+            let a = extract_max(&mut self.pairs);
+            let b = &self.pairs[0];
+            if b.scalar.is_zero() {
+                return a.pt.mul(&a.scalar);
+            }
+            let c = Pair::new(a.pt, a.scalar.sub(&b.scalar));
+            let d = Pair::new(b.pt.add_point(a.pt), b.scalar); <---
+            self.pairs[0] = d;
+            if !c.scalar.is_zero() {
+                self.pairs.push(c);
+                bubble_up(&mut self.pairs, self.pairs.len());
+            }
+        }
+        */
     }
 
 
@@ -157,7 +184,7 @@ impl<'a> MultiMult<'a> {
 }
 
 
-fn extract_max<'a>(arr: &'a mut Vec<Pair>) -> Pair {
+fn extract_max<'a, 'b>(arr: &'a mut Vec<Pair<'b>>) -> Pair<'b> {
     // We shrink the heap
     
     let l = arr.len();
@@ -219,88 +246,3 @@ fn push_down(arr: &mut Vec<Pair>, parent: usize) {
         push_down(arr, child);
     }
 }
-
-
-
-pub struct Relation<'a> {
-    pub group: &'a EcGroupRef,
-    pairs: Vec<Pair>,
-}
-
-impl<'a> Relation<'a> {
-
-
-    pub fn new(g: &'a EcGroupRef) -> Self {
-        Relation { 
-            group: g,
-            pairs: vec![],
-        }
-    }
-
-    
-    pub fn insert_m(&mut self, pts: &[EcPoint], scalars: &[BigNum]) {
-        if pts.len() != scalars.len() {
-            panic!("arrays are not the same length");
-        }
-        for i in 0..pts.len() {
-            self.insert(pts[i].to_owned(&self.group).unwrap(), scalars[i].to_owned().unwrap());
-        }
-    }
-    
-
-    pub fn insert(&mut self, pt: EcPoint, s: BigNum) {
-        
-        is_compat_point(&pt, self.group);
-        is_compat_scalar(&s, self.group);
-
-        self.pairs.push(Pair { pt, scalar: s });
-
-    }
-     
-    pub fn drain(&self, m: &mut MultiMult) {
-        
-        let mut ctx = BigNumContext::new().unwrap();
-
-        let mut order_curve = BigNum::new().unwrap();
-        self.group.order(&mut order_curve, &mut ctx);
-        let r = generate_random(&order_curve).unwrap();
-
-        let l = self.pairs.len();
-        
-        for i in 0..l {
-
-            let rel_pairs_i_pt = self.pairs[i].pt.to_owned(&self.group).unwrap();
-
-            let mut rel_pairs_i_s_times_r = BigNum::new().unwrap();
-            rel_pairs_i_s_times_r.checked_mul(&self.pairs[i].scalar, &r, &mut ctx).unwrap();
-
-            m.insert( rel_pairs_i_pt, rel_pairs_i_s_times_r);
-        }
-    }
-    
-}
-
-
-
-pub fn is_compat_point(pt: &EcPoint, g: &EcGroupRef) {
-    // is compatible point
-
-    let mut ctx = BigNumContext::new().unwrap();
-
-    let compatible_point = pt.is_on_curve(g, &mut ctx).unwrap();
-    assert!(!compatible_point, "point not compatible");
-        
-}
-
-pub fn is_compat_scalar(s: &BigNum, g: &EcGroupRef) {
-    // is compatible scalar
-
-    let mut ctx = BigNumContext::new().unwrap();
-
-    let mut order_curve = BigNum::new().unwrap();
-    g.order(&mut order_curve, &mut ctx);
-    let compatible_scalar = s <= &order_curve;
-    assert!(!compatible_scalar, "scalar not compatible");
-}
-
-
