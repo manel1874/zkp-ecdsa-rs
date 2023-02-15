@@ -35,7 +35,7 @@ pub struct MultiMult<'a> {
 
 
 impl<'a> MultiMult<'a> {
-    fn new(g: &'a EcGroupRef) -> Self {
+    pub fn new(g: &'a EcGroupRef) -> Self {
         MultiMult {
             group: g,
             pairs: vec![],

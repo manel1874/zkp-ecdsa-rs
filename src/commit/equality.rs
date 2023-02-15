@@ -9,7 +9,7 @@ use openssl::error::ErrorStack;
 use openssl::hash::{hash, MessageDigest};
 
 use crate::commit::pedersen::{Commitment, PedersenParams, generate_random};
-use crate::curves::multimult;
+use crate::curves::multimult::{MultiMult, Relation};
 
 
 
@@ -142,7 +142,7 @@ pub fn prove_equality<'a>(
     }
 
 }
-/*
+
 pub fn verify_equality<'a>(
     params: &'a PedersenParams<'a>,
     C1: EcPoint,
@@ -150,9 +150,69 @@ pub fn verify_equality<'a>(
     pi: &'a EqualityProof<'a>
 ) -> bool {
     
+    let mut multi = MultiMult::new(params.c);
+
+    let ok = aggregateEquality(params, C1, C2, pi, &mut multi);
+
+    if !ok {
+        return false
+    }
+    
+    multi.evaluate().is_infinity(&params.c)
+    // return multi.evaluate().isIdentity()
+
 }
 
 
+pub fn aggregateEquality<'a>(
+    params: &'a PedersenParams<'a>,
+    C1: EcPoint,
+    C2: EcPoint,
+    pi: &'a EqualityProof<'a>,
+    multi: &mut MultiMult
+) -> bool {
+
+    let mut ctx = BigNumContext::new().unwrap();
+
+    let challenge = hash_points(MessageDigest::sha256(), params.c, &[&C1, &C2, &pi.a_1, &pi.a_2]).unwrap();
+    // new scalar challenge
+    let mut order_curve = BigNum::new().unwrap();
+    params.c.order(&mut order_curve, &mut ctx);
+    let mut cc = BigNum::new().unwrap();
+    cc.nnmod(&challenge, &order_curve, &mut ctx);
+
+
+    let mut A1rel = Relation::new(params.c);
+    A1rel.insert(params.g.to_owned(&params.c).unwrap(), pi.t_x.to_owned().unwrap());
+    A1rel.insert(params.h.to_owned(&params.c).unwrap(), pi.t_r1.to_owned().unwrap());
+    A1rel.insert(C1, cc.to_owned().unwrap());
+    // pi.a_1.invert(&params.c, &mut ctx);
+    // invert function cannot be used because:
+    // `pi` is a `&` reference, so the data it refers to cannot be borrowed as mutable
+    let minus_1 = BigNum::from_dec_str("-1").unwrap(); 
+    let mut minus_a_1 = EcPoint::new(&params.c).unwrap();
+    minus_a_1.mul(&params.c, &pi.a_1, &minus_1, &mut ctx).unwrap();
+    A1rel.insert(minus_a_1, BigNum::from_u32(1).unwrap());
+    
+    let mut A2rel = Relation::new(params.c);
+    A2rel.insert(params.g.to_owned(&params.c).unwrap(), pi.t_x.to_owned().unwrap());
+    A2rel.insert(params.h.to_owned(&params.c).unwrap(), pi.t_r2.to_owned().unwrap());
+    A2rel.insert(C2, cc.to_owned().unwrap());
+    // pi.a_1.invert(&params.c, &mut ctx);
+    // invert function cannot be used because:
+    // `pi` is a `&` reference, so the data it refers to cannot be borrowed as mutable
+    let minus_1 = BigNum::from_dec_str("-1").unwrap(); 
+    let mut minus_a_2 = EcPoint::new(&params.c).unwrap();
+    minus_a_2.mul(&params.c, &pi.a_2, &minus_1, &mut ctx).unwrap();
+    A2rel.insert(minus_a_2, BigNum::from_u32(1).unwrap());
+    
+    A1rel.drain(multi);
+    A2rel.drain(multi);
+
+    return true
+}
+
+/*
 
 export async function verifyEquality(
     params: PedersenParams,
@@ -166,6 +226,32 @@ export async function verifyEquality(
         return false
     }
     return multi.evaluate().isIdentity()
+}
+
+
+
+export async function aggregateEquality(
+    params: PedersenParams,
+    C1: Group.Point,
+    C2: Group.Point,
+    pi: EqualityProof,
+    multi: MultiMult
+): Promise<boolean> {
+    const challenge = await hashPoints('SHA-256', [C1, C2, pi.A_1, pi.A_2]),
+        cc = params.c.newScalar(challenge),
+        A1rel = new Relation(params.c)
+    A1rel.insert(params.g, pi.t_x)
+    A1rel.insert(params.h, pi.t_r1)
+    A1rel.insert(C1, cc)
+    A1rel.insert(pi.A_1.neg(), params.c.newScalar(BigInt(1)))
+    const A2rel = new Relation(params.c)
+    A2rel.insert(params.g, pi.t_x)
+    A2rel.insert(params.h, pi.t_r2)
+    A2rel.insert(C2, cc)
+    A2rel.insert(pi.A_2.neg(), params.c.newScalar(BigInt(1)))
+    A1rel.drain(multi)
+    A2rel.drain(multi)
+    return true
 }
 */
 
