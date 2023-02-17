@@ -1,5 +1,5 @@
-use openssl::ec::{EcGroup, EcGroupRef, EcPoint, EcPointRef};
-use openssl::bn::{BigNum, BigNumRef, BigNumContext, MsbOption};
+use openssl::ec::{EcGroupRef, EcPoint};
+use openssl::bn::{BigNum, BigNumContext, MsbOption};
 use openssl::error::ErrorStack;
 //use std::convert::TryFrom;
 
@@ -25,6 +25,10 @@ impl<'a> Commitment<'a> {
     pub fn add(&mut self, c: &Commitment) {
 
         let mut ctx = BigNumContext::new().unwrap();
+        
+        // Take group order
+        let mut order_curve = BigNum::new().unwrap();
+        self.group.order(&mut order_curve, &mut ctx).unwrap();
 
         // Update p: sum_p = self.p + c.p
         let mut sum_p = EcPoint::new(&self.group).unwrap();
@@ -33,7 +37,7 @@ impl<'a> Commitment<'a> {
         
         // Update r: sum_r = self.r + c.r
         let mut sum_r = BigNum::new().unwrap();
-        sum_r.checked_add(&self.r, &c.r).unwrap();
+        sum_r.mod_sub(&self.r, &c.r, &order_curve, &mut ctx).unwrap();
         self.r = sum_r;
     }
 
@@ -42,6 +46,10 @@ impl<'a> Commitment<'a> {
     pub fn sub(&mut self, c: &Commitment) {
 
         let mut ctx = BigNumContext::new().unwrap();
+
+        // Take group order
+        let mut order_curve = BigNum::new().unwrap();
+        self.group.order(&mut order_curve, &mut ctx).unwrap();
 
         // Update p: sum_p = self.p - c.p
         let mut sub_p = EcPoint::new(&self.group).unwrap();
@@ -55,7 +63,7 @@ impl<'a> Commitment<'a> {
         
         // Update r: sum_r = self.r - c.r
         let mut sub_r = BigNum::new().unwrap();
-        sub_r.checked_sub(&self.r, &c.r).unwrap();
+        sub_r.mod_sub(&self.r, &c.r, &order_curve, &mut ctx).unwrap();
         self.r = sub_r;
     }
 
@@ -65,6 +73,10 @@ impl<'a> Commitment<'a> {
 
         let mut ctx = BigNumContext::new().unwrap();
 
+        // Take group order
+        let mut order_curve = BigNum::new().unwrap();
+        self.group.order(&mut order_curve, &mut ctx).unwrap();
+
         // Update p: mul_p = k * self.p
         let mut mul_p = EcPoint::new(&self.group).unwrap();
         mul_p.mul(&self.group, &self.p, k, &mut ctx).unwrap();
@@ -72,7 +84,7 @@ impl<'a> Commitment<'a> {
 
         // Update r: mul_r = k * self.r 
         let mut mul_r = BigNum::new().unwrap();
-        mul_r.checked_mul(&self.r, k, &mut ctx).unwrap();
+        mul_r.mod_mul(&self.r, k, &order_curve, &mut ctx).unwrap();
         self.r = mul_r;
 
     }
@@ -161,7 +173,7 @@ pub fn generate_pedersen_params(c: &EcGroupRef) -> PedersenParams {
     let g = c.generator();
 
     let mut order_curve = BigNum::new().unwrap();
-    c.order(&mut order_curve, &mut ctx);
+    c.order(&mut order_curve, &mut ctx).unwrap();
     let r = generate_random(&order_curve).unwrap();
 
     

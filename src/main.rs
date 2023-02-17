@@ -104,7 +104,7 @@ fn main() {
         let g = group.generator();
         
         let mut order_curve = BigNum::new().unwrap();
-        group.order(&mut order_curve, &mut ctx);
+        group.order(&mut order_curve, &mut ctx).unwrap();
         let r = pedersen::generate_random(&order_curve).unwrap();
 
         // println!("Size is: {:?}", r);
@@ -141,7 +141,7 @@ fn main() {
         minus_h.mul(&group, &h, &minus_1, &mut ctx).unwrap();
 
         //use invert
-        h.invert(&group, &mut ctx);
+        h.invert(&group, &mut ctx).unwrap();
 
         let invertibility = h.eq(&group, &minus_h, &mut ctx).unwrap();
 

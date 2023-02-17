@@ -3,8 +3,8 @@
 //use sha2::{Sha256, Digest};
 //use std::convert::TryFrom;
 
-use openssl::ec::{EcGroup, EcGroupRef, EcPoint, EcPointRef, PointConversionForm};
-use openssl::bn::{BigNum, BigNumRef, BigNumContext, MsbOption};
+use openssl::ec::{EcGroupRef, EcPoint, PointConversionForm};
+use openssl::bn::{BigNum, BigNumContext};
 use openssl::error::ErrorStack;
 use openssl::hash::{hash, MessageDigest};
 
@@ -98,7 +98,7 @@ pub fn prove_equality<'a>(
     let mut ctx = BigNumContext::new().unwrap();
 
     let mut order_curve = BigNum::new().unwrap();
-    params.c.order(&mut order_curve, &mut ctx);
+    params.c.order(&mut order_curve, &mut ctx).unwrap();
     let k = generate_random(&order_curve).unwrap(); //Scalar::random(&mut rand::thread_rng());
 
     let A1 = params.commit(&k);
@@ -107,28 +107,28 @@ pub fn prove_equality<'a>(
     let c = hash_points(MessageDigest::sha256(), params.c, &[&C1.p, &C2.p, &A1.p, &A2.p]).unwrap();
 
     let mut cc = BigNum::new().unwrap();
-    cc.nnmod(&c, &order_curve, &mut ctx);
+    cc.nnmod(&c, &order_curve, &mut ctx).unwrap();
     let mut xx = BigNum::new().unwrap();
-    xx.nnmod(&x, &order_curve, &mut ctx);
+    xx.nnmod(&x, &order_curve, &mut ctx).unwrap();
     let mut kk = BigNum::new().unwrap();
-    kk.nnmod(&k, &order_curve, &mut ctx);
+    kk.nnmod(&k, &order_curve, &mut ctx).unwrap();
 
 
     // Compute  t_x = k - cx
     let mut cc_times_xx = BigNum::new().unwrap();
-    cc_times_xx.checked_mul(&cc, &xx, &mut ctx).unwrap();
+    cc_times_xx.mod_mul(&cc, &xx, &order_curve, &mut ctx).unwrap();       // TODO: change to 'mod_mul'
     let mut t_x = BigNum::new().unwrap();
     t_x.checked_sub(&kk, &cc_times_xx).unwrap();
     
     // Compute t_r1 = s1 - c r1
     let mut cc_times_r1 = BigNum::new().unwrap();
-    cc_times_r1.checked_mul(&cc, &C1.r, &mut ctx).unwrap();
+    cc_times_r1.mod_mul(&cc, &C1.r, &order_curve, &mut ctx).unwrap();     // TODO: change to 'mod_mul'
     let mut t_r1 = BigNum::new().unwrap();
     t_r1.checked_sub(&A1.r, &cc_times_r1).unwrap();
 
     // Compute t_r2 = s2 - c r2
     let mut cc_times_r2 = BigNum::new().unwrap();
-    cc_times_r2.checked_mul(&cc, &C2.r, &mut ctx).unwrap();
+    cc_times_r2.mod_mul(&cc, &C2.r, &order_curve, &mut ctx).unwrap();     // TODO: change to 'mod_mul'
     let mut t_r2 = BigNum::new().unwrap();
     t_r2.checked_sub(&A2.r, &cc_times_r2).unwrap();
 
@@ -152,7 +152,7 @@ pub fn verify_equality<'a>(
     
     let mut multi = MultiMult::new(params.c);
 
-    let ok = aggregateEquality(params, C1, C2, pi, &mut multi);
+    let ok = aggregate_equality(params, C1, C2, pi, &mut multi);
 
     if !ok {
         return false
@@ -164,7 +164,7 @@ pub fn verify_equality<'a>(
 }
 
 
-pub fn aggregateEquality<'a>(
+pub fn aggregate_equality<'a>(
     params: &'a PedersenParams<'a>,
     C1: EcPoint,
     C2: EcPoint,
@@ -177,9 +177,9 @@ pub fn aggregateEquality<'a>(
     let challenge = hash_points(MessageDigest::sha256(), params.c, &[&C1, &C2, &pi.a_1, &pi.a_2]).unwrap();
     // new scalar challenge
     let mut order_curve = BigNum::new().unwrap();
-    params.c.order(&mut order_curve, &mut ctx);
+    params.c.order(&mut order_curve, &mut ctx).unwrap();
     let mut cc = BigNum::new().unwrap();
-    cc.nnmod(&challenge, &order_curve, &mut ctx);
+    cc.nnmod(&challenge, &order_curve, &mut ctx).unwrap();
 
 
     let mut A1rel = Relation::new(params.c);

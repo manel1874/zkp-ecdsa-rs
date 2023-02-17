@@ -1,6 +1,6 @@
 use std::cmp::Ordering;
 
-use openssl::ec::{EcGroup, EcGroupRef, EcPoint, EcPointRef, PointConversionForm};
+use openssl::ec::{EcGroupRef, EcPoint};
 use openssl::bn::{BigNum, BigNumContext};
 
 use crate::commit::pedersen::generate_random;
@@ -262,7 +262,7 @@ impl<'a> Relation<'a> {
         let mut ctx = BigNumContext::new().unwrap();
 
         let mut order_curve = BigNum::new().unwrap();
-        self.group.order(&mut order_curve, &mut ctx);
+        self.group.order(&mut order_curve, &mut ctx).unwrap();
         let r = generate_random(&order_curve).unwrap();
 
         let l = self.pairs.len();
@@ -298,7 +298,7 @@ pub fn is_compat_scalar(s: &BigNum, g: &EcGroupRef) {
     let mut ctx = BigNumContext::new().unwrap();
 
     let mut order_curve = BigNum::new().unwrap();
-    g.order(&mut order_curve, &mut ctx);
+    g.order(&mut order_curve, &mut ctx).unwrap();
     let compatible_scalar = s <= &order_curve;
     assert!(compatible_scalar, "scalar not compatible");
 }
