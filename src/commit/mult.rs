@@ -6,6 +6,7 @@ use openssl::hash::{hash, MessageDigest};
 use crate::commit::pedersen::{Commitment, PedersenParams, generate_random};
 use crate::curves::multimult::{MultiMult, Relation};
 
+use crate::equality::hash_points;
 
 //#[derive(Serialize, Deserialize)]
 pub struct MultProof<'a> {
@@ -70,7 +71,7 @@ pub fn prov_mult<'a>(
     Cx: Commitment,
     Cy: Commitment,
     Cz: Commitment
-) {//-> MultProof {
+) -> MultProof<'a> {
     let mut ctx = BigNumContext::new().unwrap();
 
     // Take group order
@@ -78,6 +79,7 @@ pub fn prov_mult<'a>(
     params.c.order(&mut order_curve, &mut ctx).unwrap();
 
     // Compute xx, C4 , r4
+    // New scalar
     let mut xx = BigNum::new().unwrap();
     xx.nnmod(&x, &order_curve, &mut ctx).unwrap();
 
@@ -98,6 +100,7 @@ pub fn prov_mult<'a>(
 
     let A4_1 = params.commit(&k_z); // TODO: check logic
 
+    // New scalar
     let mut kx = BigNum::new().unwrap();
     kx.nnmod(&k_x, &order_curve, &mut ctx).unwrap();
     
@@ -106,42 +109,108 @@ pub fn prov_mult<'a>(
     
     // Step 2: Compute challenge  H(Cx, Cy, Cz, C4, Ax, Ay, Az, A4_1, A4_2)
 
-    let c = hash_points(MessageDigest::sha256(), params.c, &[&Cx.p, &Cy.p, &A1.p, &A2.p]).unwrap();
+    let c = hash_points(MessageDigest::sha256(), params.c, &[&Cx.p, &Cy.p, &Cz.p, &C4, &Ax.p, &Ay.p, &Az.p, &A4_1.p, &A4_2]).unwrap();
 
+    // New scalar
+    let mut cc = BigNum::new().unwrap();
+    cc.nnmod(&c, &order_curve, &mut ctx).unwrap();
+    let mut yy = BigNum::new().unwrap();
+    yy.nnmod(&y, &order_curve, &mut ctx).unwrap();
+    let mut zz = BigNum::new().unwrap();
+    zz.nnmod(&z, &order_curve, &mut ctx).unwrap();
+    // new scalar for ky and kz is missing
+    //      ky = params.c.newScalar(k_y),
+    //      kz = params.c.newScalar(k_z),
 
+    // Compute tx = kx - c * x
+    let mut cc_times_xx = BigNum::new().unwrap();
+    cc_times_xx.mod_mul(&cc, &xx, &order_curve, &mut ctx).unwrap();
+    let mut t_x = BigNum::new().unwrap();
+    t_x.mod_sub(&kx, &cc_times_xx, &order_curve, &mut ctx).unwrap();
 
-/* 
+    // Compute ty = ky - c * y
+    let mut cc_times_yy = BigNum::new().unwrap();
+    cc_times_yy.mod_mul(&cc, &yy, &order_curve, &mut ctx).unwrap();
+    let mut t_y = BigNum::new().unwrap();
+    t_y.mod_sub(&k_y, &cc_times_yy, &order_curve, &mut ctx).unwrap();
 
+    // Compute tz = kz - c * z
+    let mut cc_times_zz = BigNum::new().unwrap();
+    cc_times_zz.mod_mul(&cc, &zz, &order_curve, &mut ctx).unwrap();
+    let mut t_z = BigNum::new().unwrap();
+    t_z.mod_sub(&k_y, &cc_times_zz, &order_curve, &mut ctx).unwrap();
+
+    // Compute t_rx = sx - c * rx
+    let mut cc_times_rx = BigNum::new().unwrap();
+    cc_times_rx.mod_mul(&cc, &Cx.r, &order_curve, &mut ctx).unwrap();   
+    let mut t_rx = BigNum::new().unwrap();
+    t_rx.mod_sub(&Ax.r, &cc_times_rx, &order_curve, &mut ctx).unwrap();
     
-    const xx = params.c.newScalar(x),
-        C4 = Cy.p.mul(xx), // C4 = Cy * x
-        r4 = Cy.r.mul(xx), // C4 = zG + r4H
-        // Step 1: Compute commitments
-        k_x = rnd(params.c.order),
-        k_y = rnd(params.c.order),
-        k_z = rnd(params.c.order),
-        kx = params.c.newScalar(k_x),
-        Ax = params.commit(k_x),
-        Ay = params.commit(k_y),
-        Az = params.commit(k_z),
-        A4_1 = params.commit(k_z),
-        A4_2 = Cy.p.mul(kx),
-        // Step 2: Compute challenge  H(Cx, Cy, Cz, C4, Ax, Ay, Az, A4_1, A4_2)
-        c = await hashPoints(SHA-256, [Cx.p, Cy.p, Cz.p, C4, Ax.p, Ay.p, Az.p, A4_1.p, A4_2]),
-        cc = params.c.newScalar(c),
-        ky = params.c.newScalar(k_y),
-        kz = params.c.newScalar(k_z),
-        yy = params.c.newScalar(y),
-        zz = params.c.newScalar(z),
-        t_x = kx.sub(cc.mul(xx)), // tx = kx-c*x
-        t_y = ky.sub(cc.mul(yy)), // ty = ky-c*y
-        t_z = kz.sub(cc.mul(zz)), // tz = kz-c*z
-        t_rx = Ax.r.sub(cc.mul(Cx.r)), //  t_rx = sx-c*rx
-        t_ry = Ay.r.sub(cc.mul(Cy.r)), //  t_ry = sy-c*ry
-        t_rz = Az.r.sub(cc.mul(Cz.r)), //  t_rz = sz-c*rz
-        t_r4 = A4_1.r.sub(cc.mul(r4)) //  t_r4 = s4-c*r4
+    // Compute t_ry = sy - c * ry
+    let mut cc_times_ry = BigNum::new().unwrap();
+    cc_times_ry.mod_mul(&cc, &Cy.r, &order_curve, &mut ctx).unwrap();   
+    let mut t_ry = BigNum::new().unwrap();
+    t_ry.mod_sub(&Ay.r, &cc_times_ry, &order_curve, &mut ctx).unwrap();
 
-    return new MultProof(C4, Ax.p, Ay.p, Az.p, A4_1.p, A4_2, t_x, t_y, t_z, t_rx, t_ry, t_rz, t_r4)
-*/
+    // Compute t_rz = sz - c * rz
+    let mut cc_times_rz = BigNum::new().unwrap();
+    cc_times_rz.mod_mul(&cc, &Cz.r, &order_curve, &mut ctx).unwrap();   
+    let mut t_rz = BigNum::new().unwrap();
+    t_rz.mod_sub(&Az.r, &cc_times_rz, &order_curve, &mut ctx).unwrap();
+
+    // Compute t_r4 = s4 - c * r4
+    let mut cc_times_r4 = BigNum::new().unwrap();
+    cc_times_r4.mod_mul(&cc, &r4, &order_curve, &mut ctx).unwrap();   
+    let mut t_r4 = BigNum::new().unwrap();
+    t_r4.mod_sub(&A4_1.r, &cc_times_r4, &order_curve, &mut ctx).unwrap();
+
+    MultProof {
+        group: params.c,
+        c_4: C4,
+        a_x: Ax.p,
+        a_y: Ay.p,
+        a_z: Az.p,
+        a_4_1: A4_1.p,
+        a_4_2: A4_2,
+        t_x,
+        t_y,
+        t_z,
+        t_rx,
+        t_ry,
+        t_rz,
+        t_r4,
+    }
+}
+
+
+
+pub fn verify_mult<'a>(
+    params: &'a PedersenParams<'a>,
+    Cx: EcPoint,
+    Cy: EcPoint,
+    Cz: EcPoint,
+    pi: &'a MultProof<'a>
+) -> bool {
+    
+    let mut multi = MultiMult::new(params.c);
+
+    let ok = aggregate_mult(params, Cx, Cy, Cz, pi, &mut multi);
+
+    if !ok {
+        return false
+    }
+    
+    multi.evaluate().is_infinity(&params.c)
+}
+
+pub fn aggregate_mult<'a> ( 
+    params: &'a PedersenParams<'a>,
+    Cx: EcPoint,
+    Cy: EcPoint,
+    Cz: EcPoint,
+    pi: &'a EqualityProof<'a>,
+    multi: &mut MultiMult
+) -> {
+    
 }
 

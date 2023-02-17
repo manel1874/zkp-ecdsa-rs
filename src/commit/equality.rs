@@ -114,23 +114,23 @@ pub fn prove_equality<'a>(
     kk.nnmod(&k, &order_curve, &mut ctx).unwrap();
 
 
-    // Compute  t_x = k - cx
+    // Compute  t_x = k - c * x
     let mut cc_times_xx = BigNum::new().unwrap();
-    cc_times_xx.mod_mul(&cc, &xx, &order_curve, &mut ctx).unwrap();       // TODO: change to 'mod_mul'
+    cc_times_xx.mod_mul(&cc, &xx, &order_curve, &mut ctx).unwrap();       
     let mut t_x = BigNum::new().unwrap();
-    t_x.checked_sub(&kk, &cc_times_xx).unwrap();
+    t_x.mod_sub(&kk,  &cc_times_xx, &order_curve, &mut ctx).unwrap();
     
-    // Compute t_r1 = s1 - c r1
+    // Compute t_r1 = s1 - c * r1
     let mut cc_times_r1 = BigNum::new().unwrap();
-    cc_times_r1.mod_mul(&cc, &C1.r, &order_curve, &mut ctx).unwrap();     // TODO: change to 'mod_mul'
+    cc_times_r1.mod_mul(&cc, &C1.r, &order_curve, &mut ctx).unwrap();     
     let mut t_r1 = BigNum::new().unwrap();
-    t_r1.checked_sub(&A1.r, &cc_times_r1).unwrap();
+    t_r1.mod_sub(&A1.r, &cc_times_r1, &order_curve, &mut ctx).unwrap();
 
-    // Compute t_r2 = s2 - c r2
+    // Compute t_r2 = s2 - c * r2
     let mut cc_times_r2 = BigNum::new().unwrap();
-    cc_times_r2.mod_mul(&cc, &C2.r, &order_curve, &mut ctx).unwrap();     // TODO: change to 'mod_mul'
+    cc_times_r2.mod_mul(&cc, &C2.r, &order_curve, &mut ctx).unwrap();   
     let mut t_r2 = BigNum::new().unwrap();
-    t_r2.checked_sub(&A2.r, &cc_times_r2).unwrap();
+    t_r2.mod_sub(&A2.r, &cc_times_r2, &order_curve, &mut ctx).unwrap();
 
     EqualityProof {
         group: params.c,
@@ -159,12 +159,10 @@ pub fn verify_equality<'a>(
     }
     
     multi.evaluate().is_infinity(&params.c)
-    // return multi.evaluate().isIdentity()
-
 }
 
 
-pub fn aggregate_equality<'a>(
+pub fn aggregate_equality<'a> (
     params: &'a PedersenParams<'a>,
     C1: EcPoint,
     C2: EcPoint,
@@ -211,82 +209,3 @@ pub fn aggregate_equality<'a>(
 
     return true
 }
-
-/*
-
-export async function verifyEquality(
-    params: PedersenParams,
-    C1: Group.Point,
-    C2: Group.Point,
-    pi: EqualityProof
-): Promise<boolean> {
-    const multi = new MultiMult(params.c),
-        ok = await aggregateEquality(params, C1, C2, pi, multi)
-    if (!ok) {
-        return false
-    }
-    return multi.evaluate().isIdentity()
-}
-
-
-
-export async function aggregateEquality(
-    params: PedersenParams,
-    C1: Group.Point,
-    C2: Group.Point,
-    pi: EqualityProof,
-    multi: MultiMult
-): Promise<boolean> {
-    const challenge = await hashPoints('SHA-256', [C1, C2, pi.A_1, pi.A_2]),
-        cc = params.c.newScalar(challenge),
-        A1rel = new Relation(params.c)
-    A1rel.insert(params.g, pi.t_x)
-    A1rel.insert(params.h, pi.t_r1)
-    A1rel.insert(C1, cc)
-    A1rel.insert(pi.A_1.neg(), params.c.newScalar(BigInt(1)))
-    const A2rel = new Relation(params.c)
-    A2rel.insert(params.g, pi.t_x)
-    A2rel.insert(params.h, pi.t_r2)
-    A2rel.insert(C2, cc)
-    A2rel.insert(pi.A_2.neg(), params.c.newScalar(BigInt(1)))
-    A1rel.drain(multi)
-    A2rel.drain(multi)
-    return true
-}
-*/
-
-
-
-
-
-
-/* 
-
-fn hash_points(points: &[RistrettoPoint]) -> Scalar {
-    let mut hasher = Sha256::new();
-    for point in points {
-        hasher.input(point.compress().as_bytes());
-    }
-    let result = hasher.result();
-    Scalar::try_from(&result[..]).unwrap()
-}
-
-async fn prove_equality(
-    params: PedersenParams,
-    x: u64,
-    C1: Commitment,
-    C2: Commitment
-) -> EqualityProof {
-    let k = Scalar::random(&mut rand::thread_rng()),
-        A1 = params.c * k,
-        A2 = params.c * k,
-        c = hash_points(&[C1.p, C2.p, A1, A2]),
-        xx = Scalar::from(x),
-        tx = k - c * xx,
-        tr1 = A1.r - c * C1.r,
-        tr2 = A2.r - c * C2.r;
-
-    EqualityProof { A_1: A1, A_2: A2, t_x: tx, t_r1: tr1, t_r2: tr2 }
-}
-
-*/
