@@ -272,7 +272,7 @@ impl<'a> Relation<'a> {
             let rel_pairs_i_pt = self.pairs[i].pt.to_owned(&self.group).unwrap();
 
             let mut rel_pairs_i_s_times_r = BigNum::new().unwrap();
-            rel_pairs_i_s_times_r.checked_mul(&self.pairs[i].scalar, &r, &mut ctx).unwrap();
+            rel_pairs_i_s_times_r.mod_mul(&self.pairs[i].scalar, &r, &order_curve, &mut ctx).unwrap();
 
             m.insert( rel_pairs_i_pt, rel_pairs_i_s_times_r);
         }
@@ -288,7 +288,7 @@ pub fn is_compat_point(pt: &EcPoint, g: &EcGroupRef) {
     let mut ctx = BigNumContext::new().unwrap();
 
     let compatible_point = pt.is_on_curve(g, &mut ctx).unwrap();
-    assert!(!compatible_point, "point not compatible");
+    assert!(compatible_point, "point not compatible");
         
 }
 
@@ -300,7 +300,7 @@ pub fn is_compat_scalar(s: &BigNum, g: &EcGroupRef) {
     let mut order_curve = BigNum::new().unwrap();
     g.order(&mut order_curve, &mut ctx);
     let compatible_scalar = s <= &order_curve;
-    assert!(!compatible_scalar, "scalar not compatible");
+    assert!(compatible_scalar, "scalar not compatible");
 }
 
 

@@ -151,7 +151,46 @@ fn main() {
 
     {       // ====== CHECK THE EQUALITY FUNCTIONS ====== //
 
-            // TODO
+        let pparams = pedersen::generate_pedersen_params(&group);
+        
+        let same_bign10 = BigNum::from_dec_str("10").unwrap();
+        //let same_bign10 = BigNum::from_dec_str("10").unwrap();
+        let diff_bign11 = BigNum::from_dec_str("11").unwrap();
+        
+        // ============== Generate commitments & points
+        // commitments
+        let com_1_same_bign10 = pparams.commit(&same_bign10);
+        let com_2_same_bign10 = pparams.commit(&same_bign10);
+        // points
+        let com_1_same_bign10_point = com_1_same_bign10.p.to_owned(&group).unwrap();
+        let com_2_same_bign10_point = com_2_same_bign10.p.to_owned(&group).unwrap();
+
+        // commitments
+        let com_1_diff_bign10 = pparams.commit(&same_bign10);
+        let com_2_diff_bign11 = pparams.commit(&diff_bign11);
+        // points
+        let com_1_diff_bign10_point = com_1_diff_bign10.p.to_owned(&group).unwrap();
+        let com_2_diff_bign11_point = com_2_diff_bign11.p.to_owned(&group).unwrap();
+
+
+        // ============== Test true 
+
+        let pi_eq_same = equality::prove_equality(&pparams, same_bign10, com_1_same_bign10, com_2_same_bign10);
+
+        let ver_eq_true = equality::verify_equality(&pparams, com_1_same_bign10_point, com_2_same_bign10_point, &pi_eq_same);
+        println!("The true test is: {}", ver_eq_true);
+        assert_eq!(ver_eq_true, true);
+
+
+        // ============== Test false 
+
+
+        let pi_eq_diff = equality::prove_equality(&pparams, diff_bign11, com_1_diff_bign10, com_2_diff_bign11);
+
+        let ver_eq_false = equality::verify_equality(&pparams, com_1_diff_bign10_point, com_2_diff_bign11_point, &pi_eq_diff);
+        println!("The false test is: {}", ver_eq_false);
+        assert_eq!(ver_eq_false, false);
+
     }
 
 }
