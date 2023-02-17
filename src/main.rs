@@ -193,4 +193,10 @@ fn main() {
 
     }
 
+    {   // ====== CHECK THE MULT FUNCTIONS ====== //
+
+        // HERE
+
+    }
+
 }

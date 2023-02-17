@@ -207,5 +207,5 @@ pub fn aggregate_equality<'a> (
     A1rel.drain(multi);
     A2rel.drain(multi);
 
-    return true
+    true
 }

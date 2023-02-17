@@ -208,9 +208,114 @@ pub fn aggregate_mult<'a> (
     Cx: EcPoint,
     Cy: EcPoint,
     Cz: EcPoint,
-    pi: &'a EqualityProof<'a>,
+    pi: &'a MultProof<'a>,
     multi: &mut MultiMult
-) -> {
+) -> bool {
+    let mut ctx = BigNumContext::new().unwrap();
+
+    // Compute scalar
+    let challenge = hash_points(
+        MessageDigest::sha256(), 
+        params.c, 
+        &[&Cx, &Cy, &Cz, &pi.c_4, &pi.a_x, &pi.a_y, &pi.a_z, &pi.a_4_1, &pi.a_4_2]).unwrap();
+    // new scalar challenge
+    let mut order_curve = BigNum::new().unwrap();
+    params.c.order(&mut order_curve, &mut ctx).unwrap();
+    let mut cc = BigNum::new().unwrap();
+    cc.nnmod(&challenge, &order_curve, &mut ctx).unwrap();
+
+
+    let mut A_xrel = Relation::new(params.c);
+    // Compute -A_x
+    let minus_1 = BigNum::from_dec_str("-1").unwrap(); 
+    let mut minus_a_x = EcPoint::new(&params.c).unwrap();
+    minus_a_x.mul(&params.c, &pi.a_x, &minus_1, &mut ctx).unwrap();
+    // insert several
+    A_xrel.insert_m(
+        &[params.g.to_owned(&params.c).unwrap(),
+        params.h.to_owned(&params.c).unwrap(),
+        Cx,
+        minus_a_x],
+        &[pi.t_x.to_owned().unwrap(),
+        pi.t_rx.to_owned().unwrap(),
+        cc.to_owned().unwrap(),
+        BigNum::from_u32(1).unwrap()]);
     
+
+    let mut A_yrel = Relation::new(params.c);
+    // Compute -A_y
+    let minus_1 = BigNum::from_dec_str("-1").unwrap(); 
+    let mut minus_a_y = EcPoint::new(&params.c).unwrap();
+    minus_a_y.mul(&params.c, &pi.a_y, &minus_1, &mut ctx).unwrap();
+    // insert several
+    A_yrel.insert_m(
+        &[params.g.to_owned(&params.c).unwrap(),
+        params.h.to_owned(&params.c).unwrap(),
+        Cy.to_owned(&params.c).unwrap(),
+        minus_a_y],
+        &[pi.t_y.to_owned().unwrap(),
+        pi.t_ry.to_owned().unwrap(),
+        cc.to_owned().unwrap(),
+        BigNum::from_u32(1).unwrap()]);
+
+
+    let mut A_zrel = Relation::new(params.c);
+    // Compute -A_z
+    let minus_1 = BigNum::from_dec_str("-1").unwrap(); 
+    let mut minus_a_z = EcPoint::new(&params.c).unwrap();
+    minus_a_z.mul(&params.c, &pi.a_z, &minus_1, &mut ctx).unwrap();
+    // insert several
+    A_zrel.insert_m(
+        &[params.g.to_owned(&params.c).unwrap(),
+        params.h.to_owned(&params.c).unwrap(),
+        Cz,
+        minus_a_z],
+        &[pi.t_z.to_owned().unwrap(),
+        pi.t_rz.to_owned().unwrap(),
+        cc.to_owned().unwrap(),
+        BigNum::from_u32(1).unwrap()]);
+
+
+    let mut A_4_1rel = Relation::new(params.c);
+    // Compute -A_4_1
+    let minus_1 = BigNum::from_dec_str("-1").unwrap(); 
+    let mut minus_a_4_1 = EcPoint::new(&params.c).unwrap();
+    minus_a_4_1.mul(&params.c, &pi.a_4_1, &minus_1, &mut ctx).unwrap();
+    // insert several
+    A_4_1rel.insert_m(
+        &[params.g.to_owned(&params.c).unwrap(),
+        params.h.to_owned(&params.c).unwrap(),
+        pi.c_4.to_owned(&params.c).unwrap(),
+        minus_a_4_1],
+        &[pi.t_z.to_owned().unwrap(),
+        pi.t_r4.to_owned().unwrap(),
+        cc.to_owned().unwrap(),
+        BigNum::from_u32(1).unwrap()]);
+
+
+    let mut A_4_2rel = Relation::new(params.c);
+    // Compute -A_4_2
+    let minus_1 = BigNum::from_dec_str("-1").unwrap(); 
+    let mut minus_a_4_2 = EcPoint::new(&params.c).unwrap();
+    minus_a_4_2.mul(&params.c, &pi.a_4_2, &minus_1, &mut ctx).unwrap();
+    // insert several
+    A_4_2rel.insert_m(
+        &[Cy,
+        pi.c_4.to_owned(&params.c).unwrap(),
+        minus_a_4_2],
+        &[pi.t_x.to_owned().unwrap(),
+        cc.to_owned().unwrap(),
+        BigNum::from_u32(1).unwrap()]);
+    
+
+    A_xrel.drain(multi);
+    A_yrel.drain(multi);
+    A_zrel.drain(multi);
+    A_4_1rel.drain(multi);
+    A_4_2rel.drain(multi);
+
+
+    true
+
 }
 
