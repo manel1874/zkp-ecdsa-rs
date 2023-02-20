@@ -199,4 +199,38 @@ fn main() {
 
     }
 
+    {
+        let mut ctx = BigNumContext::new().unwrap();
+
+        let mut order_curve = BigNum::new().unwrap();
+        group.order(&mut order_curve, &mut ctx).unwrap();
+
+        let bign_minus10 = BigNum::from_dec_str("-10").unwrap();
+
+        let mut cc = BigNum::new().unwrap();
+        cc.nnmod(&bign_minus10, &order_curve, &mut ctx).unwrap();
+
+        println!("-10 mod order_curve = {} > 0", cc);
+    }
+
+    {
+        /*
+        
+        Build order:
+        1.
+        - pointAdd -<
+        - exp
+
+        2.
+        - interpolate
+        - gk
+
+
+        Note: 1. and 2. can be built in parallel.
+
+        Confirmar que posso usar em weiestrass mode e comparar as dimensões. São as mesmas.
+        
+         */
+    }
+
 }

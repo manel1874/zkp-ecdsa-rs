@@ -37,7 +37,7 @@ impl<'a> Commitment<'a> {
         
         // Update r: sum_r = self.r + c.r
         let mut sum_r = BigNum::new().unwrap();
-        sum_r.mod_sub(&self.r, &c.r, &order_curve, &mut ctx).unwrap();
+        sum_r.mod_add(&self.r, &c.r, &order_curve, &mut ctx).unwrap();
         self.r = sum_r;
     }
 
