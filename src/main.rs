@@ -9,6 +9,7 @@ mod curves;
 mod exp;
 
 pub use crate::commit::{pedersen, equality};
+pub use crate::exp::{pointAdd};
 
 
 
@@ -21,6 +22,7 @@ fn main() {
 
     // Create a new P256 curve object
     let group = EcGroup::from_curve_name(Nid::X9_62_PRIME256V1).unwrap();
+    // let tom_group = EcGroup::from_components;
 
     // ========================== pedersen.rs ==========================
     { // =========================== add ===============================
@@ -200,7 +202,7 @@ fn main() {
 
     }
 
-    {
+    { // Check inv = as multiply by -1
         let mut ctx = BigNumContext::new().unwrap();
 
         let mut order_curve = BigNum::new().unwrap();
@@ -213,6 +215,55 @@ fn main() {
 
         println!("-10 mod order_curve = {} > 0", cc);
     }
+
+    {       // ====== CHECK THE pointAdd FUNCTIONS ====== //
+
+        let pparams = pedersen::generate_pedersen_params(&group);
+        
+        let same_bign10 = BigNum::from_dec_str("10").unwrap();
+        //let same_bign10 = BigNum::from_dec_str("10").unwrap();
+        let diff_bign11 = BigNum::from_dec_str("11").unwrap();
+        
+        // ============== Generate commitments & points
+        // commitments
+        let com_1_same_bign10 = pparams.commit(&same_bign10);
+        let com_2_same_bign10 = pparams.commit(&same_bign10);
+        // points
+        let com_1_same_bign10_point = com_1_same_bign10.p.to_owned(&group).unwrap();
+        let com_2_same_bign10_point = com_2_same_bign10.p.to_owned(&group).unwrap();
+
+        // commitments
+        let com_1_diff_bign10 = pparams.commit(&same_bign10);
+        let com_2_diff_bign11 = pparams.commit(&diff_bign11);
+        // points
+        let com_1_diff_bign10_point = com_1_diff_bign10.p.to_owned(&group).unwrap();
+        let com_2_diff_bign11_point = com_2_diff_bign11.p.to_owned(&group).unwrap();
+
+
+        // ============== Test true 
+
+        let pi_point_add = exp::prove_point_add(&params,
+
+        );
+
+        let pi_eq_same = equality::prove_equality(&pparams, same_bign10, com_1_same_bign10, com_2_same_bign10);
+
+        let ver_eq_true = equality::verify_equality(&pparams, com_1_same_bign10_point, com_2_same_bign10_point, &pi_eq_same);
+        println!("The true test is: {}", ver_eq_true);
+        assert_eq!(ver_eq_true, true);
+
+
+        // ============== Test false 
+
+
+        let pi_eq_diff = equality::prove_equality(&pparams, diff_bign11, com_1_diff_bign10, com_2_diff_bign11);
+
+        let ver_eq_false = equality::verify_equality(&pparams, com_1_diff_bign10_point, com_2_diff_bign11_point, &pi_eq_diff);
+        println!("The false test is: {}", ver_eq_false);
+        assert_eq!(ver_eq_false, false);
+
+    }
+
 
     {
         /*
