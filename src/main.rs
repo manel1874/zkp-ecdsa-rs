@@ -6,6 +6,7 @@ use openssl::hash::MessageDigest;
 
 mod commit; 
 mod curves;
+mod exp;
 
 pub use crate::commit::{pedersen, equality};
 
@@ -32,9 +33,9 @@ fn main() {
 
         let mut c1 = pedersen::Commitment::new(&group, point1, bign43);
         let c2 = pedersen::Commitment::new(&group, point2, bign2);
-        c1.add(&c2);
+        let c3 = c1.add(&c2);
 
-        println!("The result of adding commitments is {} = 45?", c1.r);
+        println!("The result of adding commitments is {} = 45?", c3.r);
     }
 
     { // =========================== sub ===============================
@@ -47,9 +48,9 @@ fn main() {
 
         let mut c1 = pedersen::Commitment::new(&group, point1, bign43);
         let c2 = pedersen::Commitment::new(&group, point2, bign2);
-        c1.sub(&c2);
+        let c3 = c1.sub(&c2);
 
-        println!("The result of adding commitments is {} = 41?", c1.r);
+        println!("The result of adding commitments is {} = 41?", c3.r);
     }
 
     { // =========================== mul ===============================
@@ -60,9 +61,9 @@ fn main() {
         let bign2 = BigNum::from_dec_str("2").unwrap();
 
         let mut c1 = pedersen::Commitment::new(&group, point1, bign43);
-        c1.mul(&bign2);
+        let c3 = c1.mul(&bign2);
 
-        println!("The result of adding commitments is {} = 86?", c1.r);
+        println!("The result of adding commitments is {} = 86?", c3.r);
     }
 
 

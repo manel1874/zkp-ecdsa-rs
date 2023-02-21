@@ -26,8 +26,9 @@ pub struct MultProof<'a> {
     pub t_r4: BigNum,
 }
 
+
 impl<'a> MultProof<'a> {
-    fn eq(&self, other: &MultProof) -> bool {
+    pub fn eq(&self, other: &MultProof) -> bool {
         
         let mut ctx = BigNumContext::new().unwrap();
 

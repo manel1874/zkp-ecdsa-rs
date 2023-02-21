@@ -8,10 +8,10 @@ description = "Rust implementation of zkattest proof system"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-num-bigint = "0.2"
+#num-bigint = "0.2"
 #secp256k1 = "0.7"
 #openssl = { version = "0.10", features = ["ec"] }
-openssl = "0.10.29"
+openssl = "0.10.45"
 
 
 #[lib]

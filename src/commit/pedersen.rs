@@ -20,9 +20,16 @@ impl<'a> Commitment<'a> {
         Commitment{ group, p, r }
     }
     
+    pub fn to_owned(&self) -> Self {
+        Commitment{
+            group: &self.group,
+            p: self.p.to_owned(&self.group).unwrap(),
+            r: self.r.to_owned().unwrap()
+        }
+    }
 
     /// Takes a commitment c and adds to self
-    pub fn add(&mut self, c: &Commitment) {
+    pub fn add(&self, c: &Self) -> Self {
 
         let mut ctx = BigNumContext::new().unwrap();
         
@@ -33,17 +40,22 @@ impl<'a> Commitment<'a> {
         // Update p: sum_p = self.p + c.p
         let mut sum_p = EcPoint::new(&self.group).unwrap();
         sum_p.add(&self.group, &self.p, &c.p, &mut ctx).unwrap();
-        self.p = sum_p;
+        
         
         // Update r: sum_r = self.r + c.r
         let mut sum_r = BigNum::new().unwrap();
         sum_r.mod_add(&self.r, &c.r, &order_curve, &mut ctx).unwrap();
-        self.r = sum_r;
+
+
+        Commitment{ 
+            group: &self.group, 
+            p: sum_p, 
+            r: sum_r }
     }
 
 
     /// Takes a commitment c and subs to self
-    pub fn sub(&mut self, c: &Commitment) {
+    pub fn sub(&self, c: &Self) -> Self {
 
         let mut ctx = BigNumContext::new().unwrap();
 
@@ -59,17 +71,20 @@ impl<'a> Commitment<'a> {
         neg_c_p.mul(&self.group, &self.p, &inv, &mut ctx).unwrap();
         // // add -c.p to it
         sub_p.add(&self.group, &self.p, &neg_c_p, &mut ctx).unwrap();
-        self.p = sub_p;
         
         // Update r: sum_r = self.r - c.r
         let mut sub_r = BigNum::new().unwrap();
         sub_r.mod_sub(&self.r, &c.r, &order_curve, &mut ctx).unwrap();
-        self.r = sub_r;
+
+        Commitment{ 
+            group: &self.group, 
+            p: sub_p, 
+            r: sub_r }
     }
 
 
     /// Takes an integer k and multiplies the self by k
-    pub fn mul(&mut self, k: &BigNum) {
+    pub fn mul(&mut self, k: &BigNum) -> Self {
 
         let mut ctx = BigNumContext::new().unwrap();
 
@@ -80,12 +95,15 @@ impl<'a> Commitment<'a> {
         // Update p: mul_p = k * self.p
         let mut mul_p = EcPoint::new(&self.group).unwrap();
         mul_p.mul(&self.group, &self.p, k, &mut ctx).unwrap();
-        self.p = mul_p;
 
         // Update r: mul_r = k * self.r 
         let mut mul_r = BigNum::new().unwrap();
         mul_r.mod_mul(&self.r, k, &order_curve, &mut ctx).unwrap();
-        self.r = mul_r;
+
+        Commitment{ 
+            group: &self.group, 
+            p: mul_p, 
+            r: mul_r }
 
     }
 

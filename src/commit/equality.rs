@@ -67,8 +67,9 @@ pub struct EqualityProof<'a> {
     pub t_r2: BigNum,
 }
 
+
 impl<'a> EqualityProof<'a> {
-    fn eq(&self, other: &EqualityProof) -> bool {
+    pub fn eq(&self, other: &EqualityProof) -> bool {
         
         let mut ctx = BigNumContext::new().unwrap();
 
