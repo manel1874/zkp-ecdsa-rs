@@ -5,7 +5,7 @@ use openssl::hash::{hash, MessageDigest};
 
 use crate::commit::pedersen::{Commitment, PedersenParams, generate_random};
 use crate::commit::mult::{MultProof, prov_mult, aggregate_mult};
-use crate::commit::equality::{EqualityProof, prove_equality};
+use crate::commit::equality::{EqualityProof, prove_equality, aggregate_equality};
 use crate::curves::multimult::{MultiMult, Relation};
 
 use crate::equality::hash_points;
@@ -311,61 +311,63 @@ pub fn aggregate_point_add<'a> (
     // pi8 => C8 * C7 = C14 and C14 == 1
     let c_14 = params.g.to_owned(&params.c).unwrap();
     let c_8 = pi.c_8.to_owned(&params.c).unwrap();
-    ver_aggmult = aggregate_mult(&params, C7, c_8, c_14, &pi.pi_8, &mut multi);
+    let ver_aggmult = aggregate_mult(&params, C7, c_8, c_14, &pi.pi_8, multi);
     if !ver_aggmult {
         println!("Failed on proof pi8.");
-        false
+        return false;
     }
 
     // pi10 => i10 = i8 * i9
     let c_8 = pi.c_8.to_owned(&params.c).unwrap();
     let c_10 = pi.c_10.to_owned(&params.c).unwrap();
-    ver_aggmult = aggregate_mult(&params, c_8, C9, c_10, &pi.pi_10, &mut multi);
+    let ver_aggmult = aggregate_mult(&params, c_8, C9, c_10, &pi.pi_10, multi);
     if !ver_aggmult {
-        println!("Failed on proof pi8.");
-        false
-    }
-
-
-    /*
-        // pi10 => i10 = i8 * i9
-    if (!(await aggregateMult(params, pi.C_8, C9, pi.C_10, pi.pi_10, multi))) {
-        console.log('pi10')
-        return false
+        println!("Failed on proof pi10.");
+        return false;
     }
 
     // pi11 => i11 = i10 * i10
-    if (!(await aggregateMult(params, pi.C_10, pi.C_10, pi.C_11, pi.pi_11, multi))) {
-        console.log('pi11')
-        return false
+    let c_10_1 = pi.c_10.to_owned(&params.c).unwrap();
+    let c_10_2 = pi.c_10.to_owned(&params.c).unwrap();
+    let c_11 = pi.c_11.to_owned(&params.c).unwrap();
+    let ver_aggmult = aggregate_mult(&params, c_10_1, c_10_2, c_11, &pi.pi_11, multi);
+    if !ver_aggmult {
+        println!("Failed on proof pi11.");
+        return false;
     }
 
     // pix => x3 = i11 - x1 - x2
-    let Cint = C3.add(C1).add(C2)
-    if (!(await aggregateEquality(params, pi.C_11, Cint, pi.pi_x, multi))) {
-        console.log('pix')
-        return false
+    let mut cint = EcPoint::new(&params.c).unwrap();
+    let mut cint_int = EcPoint::new(&params.c).unwrap();
+    cint_int.add(&params.c, &C1, &C2, &mut ctx).unwrap();
+    cint.add(&params.c, &cint_int, &C3, &mut ctx).unwrap();
+    let c_11 = pi.c_11.to_owned(&params.c).unwrap();
+    let ver_aggeq = aggregate_equality(&params, c_11, cint, &pi.pi_x, multi);
+    if !ver_aggeq {
+        println!("Failed on proof pix.");
+        return false;
     }
 
     // pi13 => i13 = i10 * i12
-    if (!(await aggregateMult(params, pi.C_10, C12, pi.C_13, pi.pi_13, multi))) {
-        console.log('pi13')
-        return false
+    let c_10 = pi.c_10.to_owned(&params.c).unwrap();
+    let c_13 = pi.c_13.to_owned(&params.c).unwrap();
+    let ver_aggmult = aggregate_mult(&params, c_10, C12, c_13, &pi.pi_13, multi);
+    if !ver_aggmult {
+        println!("Failed on proof pi13.");
+        return false;
     }
 
     // piy => y3 = i13 - y1
-    Cint = C4.add(C6)
-    if (!(await aggregateEquality(params, pi.C_13, Cint, pi.pi_y, multi))) {
-        console.log('piy')
-        return false
+    let mut cint = EcPoint::new(&params.c).unwrap();
+    cint.add(&params.c, &C4, &C6, &mut ctx).unwrap();
+    let c_13 = pi.c_13.to_owned(&params.c).unwrap();
+    let ver_aggeq = aggregate_equality(&params, c_13, cint, &pi.pi_y, multi);
+    if !ver_aggeq {
+        println!("Failed on proof piy.");
+        return false;
     }
-    
-     */
-
-
 
     true
-
 
 }
 
