@@ -9,20 +9,46 @@ mod curves;
 mod exp;
 
 pub use crate::commit::{pedersen, equality};
-pub use crate::exp::{pointAdd};
+pub use crate::exp::pointAdd::{prove_point_add, verify_point_add};
 
 
 
 fn main() {
     println!("Hello, world!");
 
-
+    let mut ctx = BigNumContext::new().unwrap();
 
     // ========================== Testing units ==========================
 
     // Create a new P256 curve object
     let group = EcGroup::from_curve_name(Nid::X9_62_PRIME256V1).unwrap();
-    // let tom_group = EcGroup::from_components;
+
+    // Creat new T256 curve object
+                /*  export const war256 = new WeierstrassGroup(
+                'war256',
+                BigInt('0xffffffff0000000100000000000000017e72b42b30e7317793135661b1c4b117'),   // p
+                BigInt('0xffffffff0000000100000000000000017e72b42b30e7317793135661b1c4b114'),   // a 
+                BigInt('0xb441071b12f4a0366fb552f8e21ed4ac36b06aceeb354224863e60f20219fc56'),   // b
+                BigInt('0xffffffff00000001000000000000000000000000ffffffffffffffffffffffff'),   // order
+                [BigInt('0x3'), BigInt('0x5a6dd32df58708e64e97345cbe66600decd9d538a351bb3c30b4954925b1f02d')]   // generator
+            ) */
+
+    let p = BigNum::from_hex_str("ffffffff0000000100000000000000017e72b42b30e7317793135661b1c4b117").unwrap();
+    let a = BigNum::from_hex_str("ffffffff0000000100000000000000017e72b42b30e7317793135661b1c4b114").unwrap();
+    let b = BigNum::from_hex_str("b441071b12f4a0366fb552f8e21ed4ac36b06aceeb354224863e60f20219fc56").unwrap();
+    let tom_order = BigNum::from_hex_str("ffffffff00000001000000000000000000000000ffffffffffffffffffffffff").unwrap();
+    let tom_g_x = BigNum::from_hex_str("3").unwrap();
+    let tom_g_y = BigNum::from_hex_str("5a6dd32df58708e64e97345cbe66600decd9d538a351bb3c30b4954925b1f02d").unwrap();
+
+    // create tom group
+    let mut tom_group = EcGroup::from_components(p, a, b,&mut ctx).unwrap();
+
+    // create generator
+    let mut tom_g = EcPoint::new(&tom_group).unwrap();
+    tom_g.set_affine_coordinates_gfp(&tom_group, &tom_g_x, &tom_g_y, &mut ctx).unwrap();
+
+    // set generator and order on group
+    tom_group.set_generator(tom_g, tom_order, BigNum::from_u32(1).unwrap());
 
     // ========================== pedersen.rs ==========================
     { // =========================== add ===============================
@@ -218,52 +244,85 @@ fn main() {
 
     {       // ====== CHECK THE pointAdd FUNCTIONS ====== //
 
+        let mut ctx = BigNumContext::new().unwrap();
+
         let pparams = pedersen::generate_pedersen_params(&group);
+        let tom_pparams = pedersen::generate_pedersen_params(&tom_group);
         
-        let same_bign10 = BigNum::from_dec_str("10").unwrap();
-        //let same_bign10 = BigNum::from_dec_str("10").unwrap();
-        let diff_bign11 = BigNum::from_dec_str("11").unwrap();
+        let g = group.generator();
+
+        let mut order_curve = BigNum::new().unwrap();
+        group.order(&mut order_curve, &mut ctx).unwrap();
         
         // ============== Generate commitments & points
-        // commitments
-        let com_1_same_bign10 = pparams.commit(&same_bign10);
-        let com_2_same_bign10 = pparams.commit(&same_bign10);
-        // points
-        let com_1_same_bign10_point = com_1_same_bign10.p.to_owned(&group).unwrap();
-        let com_2_same_bign10_point = com_2_same_bign10.p.to_owned(&group).unwrap();
 
-        // commitments
-        let com_1_diff_bign10 = pparams.commit(&same_bign10);
-        let com_2_diff_bign11 = pparams.commit(&diff_bign11);
-        // points
-        let com_1_diff_bign10_point = com_1_diff_bign10.p.to_owned(&group).unwrap();
-        let com_2_diff_bign11_point = com_2_diff_bign11.p.to_owned(&group).unwrap();
+        // P + Q = R
+        
+        // =======              P
+        let mut P = EcPoint::new(&pparams.c).unwrap();
+        let r = pedersen::generate_random(&order_curve).unwrap();        
+        P.mul(&group, &g, &r, &mut ctx).unwrap();
+
+        // commitment PX, PY
+        let mut x1 = BigNum::new().unwrap();
+        let mut y1 = BigNum::new().unwrap();
+    
+        P.affine_coordinates_gfp(&pparams.c, &mut x1, &mut y1, &mut ctx).unwrap();
+        let PX = tom_pparams.commit(&x1);
+        let PY = tom_pparams.commit(&y1);
+
+        let PX_point = PX.p.to_owned(&tom_pparams.c).unwrap();
+        let PY_point = PY.p.to_owned(&tom_pparams.c).unwrap();
+
+
+         // =======              Q
+         let mut Q = EcPoint::new(&pparams.c).unwrap();
+         let r = pedersen::generate_random(&order_curve).unwrap();        
+         Q.mul(&group, &g, &r, &mut ctx).unwrap();
+ 
+         // commitment QX, QY
+         let mut x2 = BigNum::new().unwrap();
+         let mut y2 = BigNum::new().unwrap();
+     
+         Q.affine_coordinates_gfp(&pparams.c, &mut x2, &mut y2, &mut ctx).unwrap();
+         let QX = tom_pparams.commit(&x2);
+         let QY = tom_pparams.commit(&y2);
+
+        let QX_point = QX.p.to_owned(&tom_pparams.c).unwrap();
+        let QY_point = QY.p.to_owned(&tom_pparams.c).unwrap();     
+
+
+         // =======              R
+         let mut R = EcPoint::new(&pparams.c).unwrap();
+        R.add(&pparams.c, &P, &Q, &mut ctx).unwrap();
+
+         
+         // commitment RX, RY
+         let mut x3 = BigNum::new().unwrap();
+         let mut y3 = BigNum::new().unwrap();
+     
+         R.affine_coordinates_gfp(&pparams.c, &mut x3, &mut y3, &mut ctx).unwrap();
+         let RX = tom_pparams.commit(&x3);
+         let RY = tom_pparams.commit(&y3);  
+
+         let RX_point = RX.p.to_owned(&tom_pparams.c).unwrap();
+         let RY_point = RY.p.to_owned(&tom_pparams.c).unwrap();
+        
 
 
         // ============== Test true 
 
-        let pi_point_add = exp::prove_point_add(&params,
+        let pi_point_add = prove_point_add(&pparams, &tom_pparams, P, Q, R, PX, PY, QX, QY, RX, RY);
 
-        );
-
-        let pi_eq_same = equality::prove_equality(&pparams, same_bign10, com_1_same_bign10, com_2_same_bign10);
-
-        let ver_eq_true = equality::verify_equality(&pparams, com_1_same_bign10_point, com_2_same_bign10_point, &pi_eq_same);
-        println!("The true test is: {}", ver_eq_true);
-        assert_eq!(ver_eq_true, true);
-
-
-        // ============== Test false 
-
-
-        let pi_eq_diff = equality::prove_equality(&pparams, diff_bign11, com_1_diff_bign10, com_2_diff_bign11);
-
-        let ver_eq_false = equality::verify_equality(&pparams, com_1_diff_bign10_point, com_2_diff_bign11_point, &pi_eq_diff);
-        println!("The false test is: {}", ver_eq_false);
-        assert_eq!(ver_eq_false, false);
+        let ver_pa_true = verify_point_add(&tom_pparams, PX_point, PY_point, QX_point, QY_point, RX_point, RY_point, &pi_point_add);
+        println!("pointAdd proof is working: {}", ver_pa_true);
+        assert_eq!(ver_pa_true, true);
 
     }
 
+    {// ============ For debuggin
+
+    }
 
     {
         /*

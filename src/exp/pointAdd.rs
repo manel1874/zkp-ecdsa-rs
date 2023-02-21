@@ -64,7 +64,8 @@ impl<'a> PointAddProof<'a> {
  * @param C6 y3 = RY
  */ 
 pub fn prove_point_add<'a>(
-    params: &'a PedersenParams<'a>,
+    paramsNIST: &'a PedersenParams<'a>,
+    paramsWario: &'a PedersenParams<'a>,
     P: EcPoint,
     Q: EcPoint,
     R: EcPoint,
@@ -78,22 +79,19 @@ pub fn prove_point_add<'a>(
 
     let mut ctx = BigNumContext::new().unwrap();
 
-    let mut order_curve = BigNum::new().unwrap();
-    params.c.order(&mut order_curve, &mut ctx).unwrap();
-
     // Check P + Q = R
-    let mut check_r = EcPoint::new(&params.c).unwrap();
-    check_r.add(&params.c, &P, &Q, &mut ctx).unwrap();
-    let equality =  R.eq(&params.c, &check_r, &mut ctx).unwrap();
+    let mut check_r = EcPoint::new(&paramsNIST.c).unwrap();
+    check_r.add(&paramsNIST.c, &P, &Q, &mut ctx).unwrap();
+    let equality =  R.eq(&paramsNIST.c, &check_r, &mut ctx).unwrap();
     assert!(equality, "Points don't add up!");
 
     // Checks if points are at infinity
-    let infinity_P = P.is_infinity(&params.c);
-    assert!(infinity_P, "P is at infinity");
-    let infinity_Q = Q.is_infinity(&params.c);
-    assert!(infinity_Q, "Q is at infinity");
-    let infinity_R = R.is_infinity(&params.c);
-    assert!(infinity_R, "R is at infinity");
+    let infinity_P = P.is_infinity(&paramsNIST.c);
+    assert!(!infinity_P, "P is at infinity");
+    let infinity_Q = Q.is_infinity(&paramsNIST.c);
+    assert!(!infinity_Q, "Q is at infinity");
+    let infinity_R = R.is_infinity(&paramsNIST.c);
+    assert!(!infinity_R, "R is at infinity");
 
     let mut x1 = BigNum::new().unwrap();
     let mut y1 = BigNum::new().unwrap();
@@ -102,9 +100,9 @@ pub fn prove_point_add<'a>(
     let mut x3 = BigNum::new().unwrap();
     let mut _y3 = BigNum::new().unwrap();
 
-    P.affine_coordinates_gfp(&params.c, &mut x1, &mut y1, &mut ctx).unwrap();
-    Q.affine_coordinates_gfp(&params.c, &mut x2, &mut y2, &mut ctx).unwrap();
-    R.affine_coordinates_gfp(&params.c, &mut x3, &mut _y3, &mut ctx).unwrap();
+    P.affine_coordinates_gfp(&paramsNIST.c, &mut x1, &mut y1, &mut ctx).unwrap();
+    Q.affine_coordinates_gfp(&paramsNIST.c, &mut x2, &mut y2, &mut ctx).unwrap();
+    R.affine_coordinates_gfp(&paramsNIST.c, &mut x3, &mut _y3, &mut ctx).unwrap();
 
     let C1 = PX.to_owned();
     let C2 = QX.to_owned();
@@ -112,6 +110,9 @@ pub fn prove_point_add<'a>(
     let C4 = PY.to_owned();
     let C5 = QY.to_owned();
     let C6 = RY.to_owned();
+
+    let mut order_curve = BigNum::new().unwrap();
+    paramsWario.c.order(&mut order_curve, &mut ctx).unwrap();
 
     let mut i_7 = BigNum::new().unwrap();
     i_7.mod_sub(&x2, &x1, &order_curve, &mut ctx).unwrap();         // i7  = x2 - x1
@@ -130,15 +131,15 @@ pub fn prove_point_add<'a>(
 
 
     let C7 = C2.sub(&C1);
-    let C8 = params.commit(&i_8);
+    let C8 = paramsWario.commit(&i_8);
     let C9 = C5.sub(&C4);
-    let C10 = params.commit(&i_10);
-    let C11 = params.commit(&i_11);
+    let C10 = paramsWario.commit(&i_10);
+    let C11 = paramsWario.commit(&i_11);
     let C12 = C1.sub(&C3);
-    let C13 = params.commit(&i_13);
-    let C14 = Commitment::new(&params.c, params.g.to_owned(&params.c).unwrap(), BigNum::from_u32(0).unwrap());
+    let C13 = paramsWario.commit(&i_13);
+    let C14 = Commitment::new(&paramsWario.c, paramsWario.g.to_owned(&paramsWario.c).unwrap(), BigNum::from_u32(0).unwrap());
 
-    let pi_8 = prov_mult(&params, 
+    let pi_8 = prov_mult(&paramsWario, 
         i_7, 
         i_8.to_owned().unwrap(),
         BigNum::from_u32(1).unwrap(),
@@ -148,7 +149,7 @@ pub fn prove_point_add<'a>(
     );
 
     // pi10 => i10 = i8 * i9
-    let pi_10 = prov_mult(&params, 
+    let pi_10 = prov_mult(&paramsWario, 
         i_8, 
         i_9,
         i_10.to_owned().unwrap(),
@@ -158,7 +159,7 @@ pub fn prove_point_add<'a>(
     );
 
     // pi11 => i11 = i10 * i10
-    let pi_11 = prov_mult(&params, 
+    let pi_11 = prov_mult(&paramsWario, 
         i_10.to_owned().unwrap(), 
         i_10.to_owned().unwrap(),
         i_11.to_owned().unwrap(),
@@ -168,20 +169,20 @@ pub fn prove_point_add<'a>(
     );
 
     //  Cint = Commitment(C3.p.add(C1.p).add(C2.p), C3.r.add(C1.r).add(C2.r))
-    let mut cint_p = EcPoint::new(&params.c).unwrap();
-    let mut cint_p_int = EcPoint::new(&params.c).unwrap();
-    cint_p_int.add(&params.c, &C1.p, &C2.p, &mut ctx).unwrap();
-    cint_p.add(&params.c, &cint_p_int, &C3.p, &mut ctx).unwrap();
+    let mut cint_p = EcPoint::new(&paramsWario.c).unwrap();
+    let mut cint_p_int = EcPoint::new(&paramsWario.c).unwrap();
+    cint_p_int.add(&paramsWario.c, &C1.p, &C2.p, &mut ctx).unwrap();
+    cint_p.add(&paramsWario.c, &cint_p_int, &C3.p, &mut ctx).unwrap();
 
     let mut cint_r = BigNum::new().unwrap();
     let mut cint_r_int = BigNum::new().unwrap();
     cint_r_int.mod_add(&C1.r, &C2.r, &order_curve, &mut ctx).unwrap();
     cint_r.mod_add(&cint_r_int, &C3.r, &order_curve, &mut ctx).unwrap();
 
-    let Cint = Commitment::new(&params.c, cint_p, cint_r);
+    let Cint = Commitment::new(&paramsWario.c, cint_p, cint_r);
 
     // pix => x3 = i11 - x1 - x2
-    let pi_x = prove_equality(&params,
+    let pi_x = prove_equality(&paramsWario,
         i_11,
         C11.to_owned(),
         Cint
@@ -189,7 +190,7 @@ pub fn prove_point_add<'a>(
 
     // pi12 => i12 = x1 - x3
     // pi13 => i13 = i10 * i12
-    let pi_13 = prov_mult(&params,
+    let pi_13 = prov_mult(&paramsWario,
         i_10,
         i_12,
         i_13.to_owned().unwrap(),
@@ -199,23 +200,23 @@ pub fn prove_point_add<'a>(
     );
 
     //  Cint = new Commitment(C6.p.add(C4.p), C6.r.add(C4.r))
-    let mut cint_p = EcPoint::new(&params.c).unwrap();
-    cint_p.add(&params.c, &C6.p, &C4.p, &mut ctx).unwrap();
+    let mut cint_p = EcPoint::new(&paramsWario.c).unwrap();
+    cint_p.add(&paramsWario.c, &C6.p, &C4.p, &mut ctx).unwrap();
 
     let mut cint_r = BigNum::new().unwrap();
     cint_r.mod_add(&C6.r, &C4.r, &order_curve, &mut ctx).unwrap();
 
-    let Cint = Commitment::new(&params.c, cint_p, cint_r); 
+    let Cint = Commitment::new(&paramsWario.c, cint_p, cint_r); 
 
     // piy => y3 = i13 - y1
-    let pi_y = prove_equality(&params,
+    let pi_y = prove_equality(&paramsWario,
         i_13,
         C13.to_owned(),
         Cint
     );
 
     PointAddProof {
-        group: params.c,
+        group: paramsWario.c,
         c_8: C8.p,
         c_10: C10.p,
         c_11: C11.p,
