@@ -111,7 +111,7 @@ pub fn prov_mult<'a>(
     // Step 2: Compute challenge  H(Cx, Cy, Cz, C4, Ax, Ay, Az, A4_1, A4_2)
 
     let c = hash_points(MessageDigest::sha256(), params.c, &[&Cx.p, &Cy.p, &Cz.p, &C4, &Ax.p, &Ay.p, &Az.p, &A4_1.p, &A4_2]).unwrap();
-
+    
     // New scalar
     let mut cc = BigNum::new().unwrap();
     cc.nnmod(&c, &order_curve, &mut ctx).unwrap();
@@ -139,7 +139,7 @@ pub fn prov_mult<'a>(
     let mut cc_times_zz = BigNum::new().unwrap();
     cc_times_zz.mod_mul(&cc, &zz, &order_curve, &mut ctx).unwrap();
     let mut t_z = BigNum::new().unwrap();
-    t_z.mod_sub(&k_y, &cc_times_zz, &order_curve, &mut ctx).unwrap();
+    t_z.mod_sub(&k_z, &cc_times_zz, &order_curve, &mut ctx).unwrap();
 
     // Compute t_rx = sx - c * rx
     let mut cc_times_rx = BigNum::new().unwrap();

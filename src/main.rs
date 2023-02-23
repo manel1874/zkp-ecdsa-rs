@@ -8,7 +8,7 @@ mod commit;
 mod curves;
 mod exp;
 
-pub use crate::commit::{pedersen, equality};
+pub use crate::commit::{pedersen, equality, mult};
 pub use crate::exp::pointAdd::{prove_point_add, verify_point_add};
 
 
@@ -207,24 +207,74 @@ fn main() {
         let pi_eq_same = equality::prove_equality(&pparams, same_bign10, com_1_same_bign10, com_2_same_bign10);
 
         let ver_eq_true = equality::verify_equality(&pparams, com_1_same_bign10_point, com_2_same_bign10_point, &pi_eq_same);
-        println!("The true test is: {}", ver_eq_true);
+        println!("The true equality test is: {}", ver_eq_true);
         assert_eq!(ver_eq_true, true);
 
 
         // ============== Test false 
 
-
         let pi_eq_diff = equality::prove_equality(&pparams, diff_bign11, com_1_diff_bign10, com_2_diff_bign11);
 
         let ver_eq_false = equality::verify_equality(&pparams, com_1_diff_bign10_point, com_2_diff_bign11_point, &pi_eq_diff);
-        println!("The false test is: {}", ver_eq_false);
+        println!("The false equality test is: {}", ver_eq_false);
         assert_eq!(ver_eq_false, false);
 
     }
 
     {   // ====== CHECK THE MULT FUNCTIONS ====== //
 
-        // HERE
+        // ZK(x, y, z, rx, ry, rz: z = x * y and Cx = xG + rx H and Cy = yG + ry H and Cz = zG + rz H)
+ 
+        let pparams = pedersen::generate_pedersen_params(&tom_group);
+        
+        // Generate numbers
+        let x = BigNum::from_dec_str("2").unwrap();         // x = 2
+        let y = BigNum::from_dec_str("3").unwrap();         // y = 3
+        let z = BigNum::from_dec_str("6").unwrap();         // z = x * y = 6
+        let z_diff = BigNum::from_dec_str("7").unwrap();    // z != x * y
+
+        // Generate commitments
+        let com_x = pparams.commit(&x);
+        let com_y = pparams.commit(&y);
+        let com_z = pparams.commit(&z);
+        let com_z_diff = pparams.commit(&z_diff);
+        
+        // ============== Test true 
+        let pi_mult_true = mult::prov_mult(&pparams, 
+                                            x.to_owned().unwrap(), 
+                                            y.to_owned().unwrap(), 
+                                            z.to_owned().unwrap(), 
+                                            com_x.to_owned(), 
+                                            com_y.to_owned(), 
+                                            com_z.to_owned());
+
+        let ver_mult_true = mult::verify_mult(&pparams, 
+                                            com_x.p.to_owned(&pparams.c).unwrap(), 
+                                            com_y.p.to_owned(&pparams.c).unwrap(),
+                                            com_z.p.to_owned(&pparams.c).unwrap(),
+                                            &pi_mult_true);
+
+        println!("The true mult test is: {}", ver_mult_true);
+        assert_eq!(ver_mult_true, true);
+
+        // ============== Test false 
+        let pi_mult_false = mult::prov_mult(&pparams, 
+                                        x.to_owned().unwrap(), 
+                                        y.to_owned().unwrap(), 
+                                        z_diff.to_owned().unwrap(), 
+                                        com_x.to_owned(), 
+                                        com_y.to_owned(), 
+                                        com_z_diff.to_owned());
+
+        let ver_mult_false = mult::verify_mult(&pparams, 
+                                        com_x.p.to_owned(&pparams.c).unwrap(), 
+                                        com_y.p.to_owned(&pparams.c).unwrap(),
+                                        com_z_diff.p.to_owned(&pparams.c).unwrap(),
+                                        &pi_mult_true);
+
+        println!("The false mult test is: {}", ver_mult_false);
+        assert_eq!(ver_mult_false, false);
+
 
     }
 
