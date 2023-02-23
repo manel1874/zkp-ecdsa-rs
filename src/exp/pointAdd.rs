@@ -111,21 +111,29 @@ pub fn prove_point_add<'a>(
     let C5 = QY.to_owned();
     let C6 = RY.to_owned();
 
+
     let mut order_curve = BigNum::new().unwrap();
     paramsWario.c.order(&mut order_curve, &mut ctx).unwrap();
 
+
     let mut i_7 = BigNum::new().unwrap();
     i_7.mod_sub(&x2, &x1, &order_curve, &mut ctx).unwrap();         // i7  = x2 - x1
+    
     let mut i_8 = BigNum::new().unwrap();
     i_8.mod_inverse(&i_7, &order_curve, &mut ctx).unwrap();         // i8  = (x2 - x1)^-1
+    
     let mut i_9 = BigNum::new().unwrap();
     i_9.mod_sub(&y2, &y1, &order_curve, &mut ctx).unwrap();         // i9  = y2 - y1
+    
     let mut i_10 = BigNum::new().unwrap();
     i_10.mod_mul(&i_8, &i_9, &order_curve, &mut ctx).unwrap();      // i10 = i8 * i9 =  (y2 - y1) / (x2 - x1)
+    
     let mut i_11 = BigNum::new().unwrap();
     i_11.mod_mul(&i_10, &i_10, &order_curve, &mut ctx).unwrap();    // i11 = (i10)^2
+    
     let mut i_12 = BigNum::new().unwrap();
     i_12.mod_sub(&x1, &x3, &order_curve, &mut ctx).unwrap();        // i12 = x1 - x3
+    
     let mut i_13 = BigNum::new().unwrap();
     i_13.mod_mul(&i_10, &i_12, &order_curve, &mut ctx).unwrap();    // i13 = i10 * i12
 
@@ -167,6 +175,8 @@ pub fn prove_point_add<'a>(
         C10.to_owned(),
         C11.to_owned()
     );
+
+    // CHECKING HERE!!!!!!!!!!!!
 
     //  Cint = Commitment(C3.p.add(C1.p).add(C2.p), C3.r.add(C1.r).add(C2.r))
     let mut cint_p = EcPoint::new(&paramsWario.c).unwrap();

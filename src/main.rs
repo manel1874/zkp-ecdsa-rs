@@ -276,6 +276,7 @@ fn main() {
         assert_eq!(ver_mult_false, false);
 
 
+
     }
 
     { // Check inv = as multiply by -1
