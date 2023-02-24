@@ -29,7 +29,7 @@ pub struct PointAddProof<'a> {
 }
 
 impl<'a> PointAddProof<'a> {
-    fn eq(&self, other: &PointAddProof) -> bool {
+    pub fn eq(&self, other: &Self) -> bool {
         
         let mut ctx = BigNumContext::new().unwrap();
 
@@ -328,7 +328,7 @@ pub fn aggregate_point_add<'a> (
         return false;
     }
 
-/*
+
     // pi10 => i10 = i8 * i9
     let c_8 = pi.c_8.to_owned(&params.c).unwrap();
     let c_10 = pi.c_10.to_owned(&params.c).unwrap();
@@ -378,7 +378,7 @@ pub fn aggregate_point_add<'a> (
     if !ver_aggeq {
         println!("Failed on proof piy.");
         return false;
-    } */
+    } 
 
     true
 

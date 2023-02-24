@@ -10,6 +10,7 @@ mod exp;
 
 pub use crate::commit::{pedersen, equality, mult};
 pub use crate::exp::pointAdd::{prove_point_add, verify_point_add};
+pub use crate::exp::exp::{padded_bits}; 
 
 
 
@@ -358,52 +359,6 @@ fn main() {
 
          let RX_point = RX.p.to_owned(&tom_pparams.c).unwrap();
          let RY_point = RY.p.to_owned(&tom_pparams.c).unwrap();
-        
-
-
-        // ============== Debugging test
-
-        //                   prove_point_add
-
-        let mut tom_order_curve = BigNum::new().unwrap();
-        tom_pparams.c.order(&mut tom_order_curve, &mut ctx).unwrap();
-    
-        //                      BigNums
-        let mut i_7 = BigNum::new().unwrap();
-        i_7.mod_sub(&x2, &x1, &tom_order_curve, &mut ctx).unwrap();  
-
-        let mut i_8 = BigNum::new().unwrap();
-        i_8.mod_inverse(&i_7, &tom_order_curve, &mut ctx).unwrap(); 
-
-        //let mut C14_to_check = BigNum::new().unwrap();
-        //C14_to_check.mod_mul(&i_7, &i_8, _)
-
-        //                      Commits
-        let C7 = tom_pparams.commit(&i_7);
-        //QX.sub(&PX); <<-- Error is here!! 
-        let C8 = tom_pparams.commit(&i_8);
-        let C14 = pedersen::Commitment::new(&tom_pparams.c, tom_pparams.g.to_owned(&tom_pparams.c).unwrap(), BigNum::from_u32(0).unwrap());
-
-
-        //                      PROVE
-        let pi_8 = mult::prov_mult(&tom_pparams, 
-            i_7, 
-            i_8.to_owned().unwrap(),
-            BigNum::from_u32(1).unwrap(),
-            C7.to_owned(),
-            C8.to_owned(),
-            C14.to_owned()
-        );
-        //                      VERIFY
-        let ver_mult = mult::verify_mult(&tom_pparams, 
-            C7.p, 
-            C8.p, 
-            C14.p, 
-            &pi_8);
-
-        println!("PI8: {}", ver_mult);
-        assert_eq!(ver_mult, true);  
-
 
 
         // ============== Test true 
@@ -416,7 +371,15 @@ fn main() {
 
     }
 
-    {// ============ For debuggin
+    {// ============ Test BigNum
+
+        let mut bign_11_binary_1011 = BigNum::from_dec_str("11").unwrap();
+
+        padded_bits(&bign_11_binary_1011, 8);
+
+
+        
+        
 
     }
 
@@ -425,7 +388,7 @@ fn main() {
         
         Build order:
         1.
-        - pointAdd -<
+        - pointAdd -< DONE
         - exp
 
         2.
