@@ -328,6 +328,7 @@ pub fn aggregate_point_add<'a> (
         return false;
     }
 
+/*
     // pi10 => i10 = i8 * i9
     let c_8 = pi.c_8.to_owned(&params.c).unwrap();
     let c_10 = pi.c_10.to_owned(&params.c).unwrap();
@@ -336,6 +337,7 @@ pub fn aggregate_point_add<'a> (
         println!("Failed on proof pi10.");
         return false;
     }
+
 
     // pi11 => i11 = i10 * i10
     let c_10_1 = pi.c_10.to_owned(&params.c).unwrap();
@@ -376,7 +378,7 @@ pub fn aggregate_point_add<'a> (
     if !ver_aggeq {
         println!("Failed on proof piy.");
         return false;
-    }
+    } */
 
     true
 

@@ -68,7 +68,7 @@ impl<'a> Commitment<'a> {
         // // invert c.p
         let inv = BigNum::from_dec_str("-1").unwrap(); 
         let mut neg_c_p = EcPoint::new(&self.group).unwrap();
-        neg_c_p.mul(&self.group, &self.p, &inv, &mut ctx).unwrap();
+        neg_c_p.mul(&self.group, &c.p, &inv, &mut ctx).unwrap();
         // // add -c.p to it
         sub_p.add(&self.group, &self.p, &neg_c_p, &mut ctx).unwrap();
         

@@ -83,7 +83,7 @@ impl<'a> MultiMult<'a> {
 
 
     }
-
+    
     pub fn evaluate(&mut self) -> EcPoint {
         
         let mut ctx = BigNumContext::new().unwrap();
@@ -103,7 +103,7 @@ impl<'a> MultiMult<'a> {
         }
 
         heapify(&mut self.pairs);
-
+        
         loop {
             if self.pairs.len() == 1 {
                 let a = &self.pairs[0];
@@ -111,7 +111,7 @@ impl<'a> MultiMult<'a> {
                 // Multiplies a.pt by a.scalar
                 let mut apt_times_as = EcPoint::new(&self.group).unwrap();
                 apt_times_as.mul(&self.group, &a.pt, &a.scalar, &mut ctx).unwrap();
-    
+
                 return apt_times_as;
             }
 
@@ -134,7 +134,11 @@ impl<'a> MultiMult<'a> {
              
             // c_scalar = a.s - b.s
             let mut c_scalar = BigNum::new().unwrap();
-            c_scalar.checked_sub(&a.scalar, &b.scalar).unwrap();
+            //c_scalar.checked_sub(&a.scalar, &b.scalar).unwrap();
+            // Take group order
+            let mut order_curve = BigNum::new().unwrap();
+            self.group.order(&mut order_curve, &mut ctx).unwrap();
+            c_scalar.mod_sub(&a.scalar, &b.scalar, &order_curve, &mut ctx).unwrap();
             let c = Pair::new(a.pt.to_owned(&self.group).unwrap(), c_scalar); 
 
             // d_pt = b.pt + a.pt
@@ -149,6 +153,7 @@ impl<'a> MultiMult<'a> {
             }
             
         }
+        
 
     }
 
