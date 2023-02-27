@@ -1,4 +1,5 @@
-use rand::prelude::thread_rng;
+use rand::{seq::SliceRandom, RngCore};
+use rand::rngs::OsRng;
 
 use openssl::ec::{EcGroupRef, EcPoint, PointConversionForm};
 use openssl::bn::{BigNum, BigNumContext};
@@ -29,36 +30,25 @@ pub fn padded_bits(val: &BigNum, length: usize) -> Vec<bool> {
     ret
 } 
 
-fn generate_indices(indnum: usize, limit: usize) -> Vec<usize> {
+pub fn generate_indices(indnum: usize, limit: usize) -> Vec<usize> {
     
-    // We are not using the Algorithm P
+    /*  We are not using the Algorithm P. The algorithm below is based on 
+    Durstenfeld's algorithm for the [Fisher–Yates shuffle](https://en.wikipedia.org/wiki/Fisher%E2%80%93Yates_shuffle#The_modern_algorithm)
+    */
 
-    //The algorithm below is based on Durstenfeld's algorithm for the
-    // [Fisher–Yates shuffle](https://en.wikipedia.org/wiki/Fisher%E2%80%93Yates_shuffle#The_modern_algorithm)
-
-    // Aim: use a cryptographically secure pseudo RNG (CSPRNG)
-
-    /* 
-    use rand::{seq::SliceRandom, RngCore};
-    use rand::rngs::OsRng;
-
-    fn secure_shuffle<T: Copy>(v: &mut Vec<T>) {
-        let mut rng = OsRng;
-        v.shuffle(&mut rng);
-    } */
-
-    // HERE: use thread_rng.shuffle() : 
-    // https://stackoverflow.com/questions/26033976/how-do-i-create-a-vec-from-a-range-and-shuffle-it
-    // https://docs.rs/rand/latest/rand/seq/trait.SliceRandom.html#tymethod.shuffle
-    
     let mut ret = (0..limit).collect::<Vec<usize>>();
-    let mut rng = thread_rng();
-    for i in 0..limit - 2 {
-        let j = rng.gen_range(i, limit);
-        ret.swap(i, j);
+    let mut rng = OsRng; // CSPRNG
+    let interval = limit - indnum;
+
+    let ret_shuffled;
+
+    if interval < 0 {
+        ret_shuffled = vec![];
+    } else {
+        ret_shuffled = ret.as_mut_slice().partial_shuffle(&mut rng, interval).0.to_vec();
     }
-    ret.split_off(indnum);
-    ret
+    
+    ret_shuffled
 }
 
 

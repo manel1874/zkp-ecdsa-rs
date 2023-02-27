@@ -10,7 +10,7 @@ mod exp;
 
 pub use crate::commit::{pedersen, equality, mult};
 pub use crate::exp::pointAdd::{prove_point_add, verify_point_add};
-pub use crate::exp::exp::{padded_bits}; 
+pub use crate::exp::exp::{padded_bits, generate_indices}; 
 
 
 
@@ -371,13 +371,17 @@ fn main() {
 
     }
 
-    {// ============ Test BigNum
+    {// ============ Test Exp aux functions
 
         let mut bign_11_binary_1011 = BigNum::from_dec_str("11").unwrap();
 
-        padded_bits(&bign_11_binary_1011, 8);
+        let paddedBits = padded_bits(&bign_11_binary_1011, 8);
 
+        println!{"Vector is {:?}", paddedBits};
 
+        let vec_shuffled = generate_indices(3, 5);
+
+        println!("Shuffled vector is: {vec_shuffled:?}");
         
         
 
