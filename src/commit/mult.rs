@@ -110,7 +110,7 @@ pub fn prov_mult<'a>(
     
     // Step 2: Compute challenge  H(Cx, Cy, Cz, C4, Ax, Ay, Az, A4_1, A4_2)
 
-    let c = hash_points(MessageDigest::sha256(), params.c, &[&Cx.p, &Cy.p, &Cz.p, &C4, &Ax.p, &Ay.p, &Az.p, &A4_1.p, &A4_2]).unwrap();
+    let c = hash_points(MessageDigest::sha256(), &[params.c], &[&Cx.p, &Cy.p, &Cz.p, &C4, &Ax.p, &Ay.p, &Az.p, &A4_1.p, &A4_2]).unwrap();
     
     // New scalar
     let mut cc = BigNum::new().unwrap();
@@ -217,7 +217,7 @@ pub fn aggregate_mult<'a> (
     // Compute scalar
     let challenge = hash_points(
         MessageDigest::sha256(), 
-        params.c, 
+        &[params.c], 
         &[&Cx, &Cy, &Cz, &pi.c_4, &pi.a_x, &pi.a_y, &pi.a_z, &pi.a_4_1, &pi.a_4_2]).unwrap();
     // new scalar challenge
     let mut order_curve = BigNum::new().unwrap();

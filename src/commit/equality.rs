@@ -24,14 +24,20 @@ use crate::curves::multimult::{MultiMult, Relation};
 */
 
 
-pub fn hash_points(hash_id: MessageDigest, group: &EcGroupRef, points: &[&EcPoint]) -> Result< BigNum, ErrorStack > {  //-> impl Future<Output = Result<u128, ()>> {
+pub fn hash_points(hash_id: MessageDigest, groups: &[&EcGroupRef], points: &[&EcPoint]) -> Result< BigNum, ErrorStack > {  //-> impl Future<Output = Result<u128, ()>> {
     
     //async move {
 
         let mut ctx = BigNumContext::new().unwrap();
 
+        let bytes_points: Vec<_>; 
+        if groups.len() == 1 {
+            bytes_points = points.iter().map(|p| p.to_bytes(groups[0], PointConversionForm::COMPRESSED, &mut ctx).unwrap()).collect();
+        } else {
+            bytes_points = groups.iter().zip(points.iter()).map(|(g, p)| p.to_bytes(g, PointConversionForm::COMPRESSED, &mut ctx).unwrap()).collect();
+        }
         // bytes_points is a vec< [g.to_bytes, h.to_bytes]>
-        let bytes_points: Vec<_> = points.iter().map(|p| p.to_bytes(group, PointConversionForm::COMPRESSED, &mut ctx).unwrap()).collect();
+        
 
         // flatten bytes_points
 
@@ -105,7 +111,7 @@ pub fn prove_equality<'a>(
     let A1 = params.commit(&k);
     let A2 = params.commit(&k);
 
-    let c = hash_points(MessageDigest::sha256(), params.c, &[&C1.p, &C2.p, &A1.p, &A2.p]).unwrap();
+    let c = hash_points(MessageDigest::sha256(), &[params.c], &[&C1.p, &C2.p, &A1.p, &A2.p]).unwrap();
 
     let mut cc = BigNum::new().unwrap();
     cc.nnmod(&c, &order_curve, &mut ctx).unwrap();
@@ -173,7 +179,7 @@ pub fn aggregate_equality<'a> (
 
     let mut ctx = BigNumContext::new().unwrap();
 
-    let challenge = hash_points(MessageDigest::sha256(), params.c, &[&C1, &C2, &pi.a_1, &pi.a_2]).unwrap();
+    let challenge = hash_points(MessageDigest::sha256(), &[params.c], &[&C1, &C2, &pi.a_1, &pi.a_2]).unwrap();
     // new scalar challenge
     let mut order_curve = BigNum::new().unwrap();
     params.c.order(&mut order_curve, &mut ctx).unwrap();

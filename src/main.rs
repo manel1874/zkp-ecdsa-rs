@@ -142,7 +142,7 @@ fn main() {
         let mut h = EcPoint::new(&group).unwrap();
         h.mul(&group, &g, &r, &mut ctx).unwrap();
 
-        let hash_value = equality::hash_points(MessageDigest::sha256(), &group, &[&g.to_owned(&group).unwrap(), &h]).unwrap();
+        let hash_value = equality::hash_points(MessageDigest::sha256(), &[&group], &[&g.to_owned(&group).unwrap(), &h]).unwrap();
         println!("hash_value is: {:?}", hash_value);
 
     }
@@ -384,7 +384,6 @@ fn main() {
         println!("Shuffled vector is: {vec_shuffled:?}");
         
         
-
     }
 
     {

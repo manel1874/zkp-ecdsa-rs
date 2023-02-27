@@ -176,8 +176,6 @@ pub fn prove_point_add<'a>(
         C11.to_owned()
     );
 
-    // CHECKING HERE!!!!!!!!!!!!
-
     //  Cint = Commitment(C3.p.add(C1.p).add(C2.p), C3.r.add(C1.r).add(C2.r))
     let mut cint_p = EcPoint::new(&paramsWario.c).unwrap();
     let mut cint_p_int = EcPoint::new(&paramsWario.c).unwrap();
