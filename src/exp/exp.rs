@@ -1,19 +1,20 @@
 use rand::{seq::SliceRandom, RngCore};
 use rand::rngs::OsRng;
-use openssl::hash::{hash, MessageDigest};
 
+use openssl::hash::{hash, MessageDigest};
 use openssl::ec::{EcGroup, EcGroupRef, EcPoint, PointConversionForm};
 use openssl::bn::{BigNum, BigNumContext};
+
 use crate::commit::pedersen::{Commitment, PedersenParams, generate_random};
-
-use crate::exp::pointAdd::PointAddProof;
-
+use crate::exp::pointAdd::{PointAddProof, prove_point_add};
 use crate::equality::hash_points;
+use crate::curves::multimult::{MultiMult, Relation};
 
 
 
 pub struct ExpProof<'a> {
-    pub group: &'a EcGroupRef,
+    pub groupNIST: &'a EcGroupRef,
+    pub groupWario: &'a EcGroupRef,
     pub a: EcPoint,
     pub t_x: EcPoint,
     pub t_y: EcPoint,
@@ -36,9 +37,9 @@ impl<'a> ExpProof<'a> {
         
         let mut ctx = BigNumContext::new().unwrap();
         //  define c0
-        let c0 = self.a.eq(self.group, &other.a, &mut ctx).unwrap() &&
-                self.t_x.eq(self.group, &other.t_x, &mut ctx).unwrap() &&
-                self.t_y.eq(self.group, &other.t_y, &mut ctx).unwrap();
+        let c0 = self.a.eq(self.groupNIST, &other.a, &mut ctx).unwrap() &&
+                self.t_x.eq(self.groupWario, &other.t_x, &mut ctx).unwrap() &&
+                self.t_y.eq(self.groupWario, &other.t_y, &mut ctx).unwrap();
         
         // define r0
         let cmp_alpha = if self.alpha.is_some() && other.alpha.is_some() {
@@ -125,25 +126,20 @@ pub fn padded_bits(val: &BigNum, length: usize) -> Vec<bool> {
     ret
 } 
 
-pub fn generate_indices(indnum: usize, limit: usize) -> Vec<usize> {
+pub fn generate_indices(limit: usize) -> Vec<usize> {
     
     /*  We are not using the Algorithm P. The algorithm below is based on 
     Durstenfeld's algorithm for the [Fisher–Yates shuffle](https://en.wikipedia.org/wiki/Fisher%E2%80%93Yates_shuffle#The_modern_algorithm)
+
+    Note: ret.slice(indnum) from typescript implementation does not have any effect.
     */
 
     let mut ret = (0..limit).collect::<Vec<usize>>();
-    let mut rng = OsRng; // CSPRNG
-    let interval = limit - indnum;
+    let mut rng = OsRng; // CSPRNG  
 
-    let ret_shuffled;
+    ret.shuffle(&mut rng);
 
-    if interval < 0 {
-        ret_shuffled = vec![];
-    } else {
-        ret_shuffled = ret.as_mut_slice().partial_shuffle(&mut rng, interval).0.to_vec();
-    }
-    
-    ret_shuffled
+    ret
 }
 
 /**
@@ -171,7 +167,7 @@ pub fn prov_exp<'a>(
     Py: Commitment,
     secparam: usize,
     Q: Option<EcPoint>,
-) {//-> ExpProof<'a> {
+) -> Vec<ExpProof<'a>> {
     let mut ctx = BigNumContext::new().unwrap();
 
     let mut alpha : Vec<BigNum> = Vec::with_capacity(secparam);
@@ -233,87 +229,290 @@ pub fn prov_exp<'a>(
         arr.push(&Ty[i].p);
         groups.push(&paramsWario.c);
     }
-    let challenge = hash_points(MessageDigest::sha256(), &groups, &arr).unwrap();
-    // NOTE: check that the challenge is done like this... Raise an issue tommorrow with a merge suggestion
+    let mut challenge = hash_points(MessageDigest::sha256(), &groups, &arr).unwrap();
 
     let mut all_proofs : Vec<ExpProof> = Vec::with_capacity(secparam);
     let mut proof : ExpProof;
     for i in 0..secparam {
-        if challenge.is_bit_set(0)
+        if challenge.is_bit_set(0) {
+            proof = ExpProof{
+                groupNIST: paramsNIST.c,
+                groupWario: paramsWario.c,
+                a: A[i].to_owned(&paramsNIST.c).unwrap(),
+                t_x: Tx[i].p.to_owned(&paramsWario.c).unwrap(),
+                t_y: Ty[i].p.to_owned(&paramsWario.c).unwrap(),
+                // Response 1
+                alpha: Some(alpha[i].to_owned().unwrap()),
+                beta1: Some(r[i].to_owned().unwrap()),
+                beta2: Some(Tx[i].r.to_owned().unwrap()),
+                beta3: Some(Ty[i].r.to_owned().unwrap()),
+                // Response 2
+                z: None,
+                z2: None,
+                proof: None,
+                r1: None,
+                r2: None,
+            };
+        } else {
+            // z = alpha - s
+            let mut z = BigNum::new().unwrap();
 
+            let mut order_curve_wario = BigNum::new().unwrap();
+            paramsWario.c.order(&mut order_curve_wario, &mut ctx).unwrap();
+            let mut ss = BigNum::new().unwrap();
+            ss.nnmod(&s, &order_curve_wario, &mut ctx).unwrap();
 
+            z.mod_sub(&alpha[i], &ss, &order_curve_wario, &mut ctx).unwrap();
+
+            // T1 = g.z
+            let mut T1 = EcPoint::new(&paramsNIST.c).unwrap();
+            T1.mul_generator(&paramsNIST.c, &z, &mut ctx);
+
+            if Q.is_some() {
+                let T1_int = T1.to_owned(&paramsNIST.c).unwrap();
+                T1.add(&paramsNIST.c, &T1_int, &Q.as_ref().unwrap(), &mut ctx);
+            }
+
+            let infinity_T1 = T1.is_infinity(&paramsNIST.c);
+            assert!(!infinity_T1, "T1 is at infinity");
+    
+            let mut x = BigNum::new().unwrap();
+            let mut y = BigNum::new().unwrap();
+        
+            T1.affine_coordinates_gfp(&paramsNIST.c, &mut x, &mut y, &mut ctx).unwrap();
+
+            let T1x = paramsWario.commit(&x);
+            let T1y = paramsWario.commit(&y);
+            
+            // alpha R - s R = z R => T1 + P = T
+            let pointAddProof = prove_point_add(
+                paramsNIST,
+                paramsWario,
+                T1.to_owned(&paramsNIST.c).unwrap(),
+                P.to_owned(&paramsNIST.c).unwrap(),
+                T[i].to_owned(&paramsNIST.c).unwrap(),
+                T1x.to_owned(),
+                T1y.to_owned(),
+                Px.to_owned(),
+                Py.to_owned(),
+                Tx[i].to_owned(),
+                Ty[i].to_owned()
+            );
+
+            // z2 = r[i as number].sub(Cs.r)
+            let mut z2 = BigNum::new().unwrap();
+            z2.mod_sub(&r[i], &Cs.r, &order_curve_wario, &mut ctx).unwrap();
+
+            proof = ExpProof{
+                groupNIST: paramsNIST.c,
+                groupWario: paramsWario.c,
+                a: A[i].to_owned(&paramsNIST.c).unwrap(),
+                t_x: Tx[i].p.to_owned(&paramsWario.c).unwrap(),
+                t_y: Ty[i].p.to_owned(&paramsWario.c).unwrap(),
+                // Response 1
+                alpha: None,
+                beta1: None,
+                beta2: None,
+                beta3: None,
+                // Response 2
+                z: Some(z),
+                z2: Some(z2),
+                proof: Some(pointAddProof),
+                r1: Some(T1x.r),
+                r2: Some(T1y.r)
+            };
+
+        }
+
+        all_proofs.push(proof);
+        let challenge_int = challenge.to_owned().unwrap();
+        challenge.rshift1(&challenge_int).unwrap();
     }
 
+    all_proofs
 }
 
 
-/* 
-    const allProofs = new Array<ExpProof>(secparam)
-    let proof: ExpProof
-    for (let i = 0; i < secparam; i++) {
-        if (isOdd(challenge)) {
-            proof = new ExpProof(
-                A[i as number],
-                Tx[i as number].p,
-                Ty[i as number].p,
-                alpha[i as number],
-                r[i as number],
-                Tx[i as number].r,
-                Ty[i as number].r,
-                undefined,
-                undefined,
-                undefined,
-                undefined,
-                undefined
-            )
+pub fn verify_exp<'a>(
+    paramsNIST: &'a PedersenParams<'a>,
+    paramsWario: &'a PedersenParams<'a>,
+    Clambda : EcPoint,
+    Px: EcPoint,
+    Py: EcPoint,
+    pi: &'a Vec<ExpProof<'a>>,
+    secparam: usize,
+    Q: Option<EcPoint>,
+) {//-> bool {
+    let mut ctx = BigNumContext::new().unwrap();
+    
+    assert!(!(secparam > pi.len()), "security level not achieved");
+
+    let mut multiW = MultiMult::new(&paramsWario.c);
+    let mut multiN = MultiMult::new(&paramsNIST.c);
+
+    multiW.add_known(paramsWario.g.to_owned(&paramsWario.c).unwrap());
+    multiW.add_known(paramsWario.h.to_owned(&paramsWario.c).unwrap());
+    multiN.add_known(paramsNIST.g.to_owned(&paramsWario.c).unwrap());
+    multiN.add_known(paramsNIST.h.to_owned(&paramsWario.c).unwrap());
+    multiN.add_known(Clambda.to_owned(&paramsWario.c).unwrap());
+
+    // Compute challenge c = H (Cx, Cy, A, Tx, Ty)
+    let mut arr : Vec<&EcPoint> = Vec::with_capacity(3*secparam+2);
+    let mut groups : Vec<&EcGroupRef> = Vec::with_capacity(3*secparam+2);
+    arr.push(&Px);
+    groups.push(&paramsWario.c);
+    arr.push(&Py);
+    groups.push(&paramsWario.c);
+    for i in 0..secparam {
+        arr.push(&pi[i].a);
+        groups.push(&paramsNIST.c);
+        arr.push(&pi[i].t_x);
+        groups.push(&paramsWario.c);
+        arr.push(&pi[i].t_y);
+        groups.push(&paramsWario.c);
+    }
+    let mut challenge = hash_points(MessageDigest::sha256(), &groups, &arr).unwrap();
+
+    let indices = generate_indices(pi.len());
+    let challenge_bits = padded_bits(&challenge, pi.len());
+
+    for j in 0..secparam {
+        let i = indices[j];
+
+        if challenge_bits[i] {
+            // Check the corresponding params are not set to NoneQ
+
+            let params_not_found =  !(pi[i].alpha.is_some() &&
+                pi[i].beta1.is_some() &&
+                pi[i].beta2.is_some() &&
+                pi[i].beta3.is_some());
+            
+            assert!(!params_not_found, "params not found");
+
+            let alpha = pi[i].alpha.as_deref().unwrap();
+            let beta1 = pi[i].beta1.as_deref().unwrap();
+            let beta2 = pi[i].beta2.as_deref().unwrap();
+            let beta3 = pi[i].beta3.as_deref().unwrap();
+            let a = pi[i].a.as_ref();
+            let t_x = pi[i].t_x.as_ref();
+            let t_y = pi[i].t_y.as_ref();
+
+            let mut T = EcPoint::new(&paramsNIST.c).unwrap();
+            T.mul_generator(&paramsNIST.c, &alpha, &mut ctx);
+
+            let mut relA = Relation::new(paramsNIST.c);
+
+            // Compute -A
+            let minus_1 = BigNum::from_dec_str("-1").unwrap(); 
+            let mut minus_a = EcPoint::new(&paramsNIST.c).unwrap();
+            minus_a.mul(&paramsNIST.c, a, &minus_1, &mut ctx).unwrap();
+            relA.insert_m(
+                &[T.to_owned(&paramsNIST.c).unwrap(),
+                paramsNIST.h.to_owned(&paramsNIST.c).unwrap(),
+                minus_a],
+                &[BigNum::from_u32(1).unwrap(),
+                beta1.to_owned().unwrap(),
+                BigNum::from_u32(1).unwrap()]);
+
+            relA.drain(&mut multiN);
+
+            // Build Tx and Ty
+            let infinity_T = T.is_infinity(&paramsNIST.c);
+            assert!(!infinity_T, "T is at infinity");
+
+            let mut x = BigNum::new().unwrap();
+            let mut y = BigNum::new().unwrap();
+        
+            T.affine_coordinates_gfp(&paramsNIST.c, &mut x, &mut y, &mut ctx).unwrap();
+
+            let mut relTx = Relation::new(paramsWario.c); 
+            let mut relTy = Relation::new(paramsWario.c); 
+
+            // Compute -Tx
+            let minus_1 = BigNum::from_dec_str("-1").unwrap(); 
+            let mut minus_t_x = EcPoint::new(&paramsNIST.c).unwrap();
+            minus_t_x.mul(&paramsNIST.c, t_x, &minus_1, &mut ctx).unwrap();
+            relTx.insert_m(
+                &[paramsWario.g.to_owned(&paramsWario.c).unwrap(),
+                paramsWario.h.to_owned(&paramsWario.c).unwrap(),
+                minus_t_x],
+                &[x,
+                beta2.to_owned().unwrap(),
+                BigNum::from_u32(1).unwrap()]);
+
+            // Compute -Ty
+            let minus_1 = BigNum::from_dec_str("-1").unwrap(); 
+            let mut minus_t_y = EcPoint::new(&paramsNIST.c).unwrap();
+            minus_t_y.mul(&paramsNIST.c, t_y, &minus_1, &mut ctx).unwrap();
+            relTx.insert_m(
+                &[paramsWario.g.to_owned(&paramsWario.c).unwrap(),
+                paramsWario.h.to_owned(&paramsWario.c).unwrap(),
+                minus_t_y],
+                &[y,
+                beta3.to_owned().unwrap(),
+                BigNum::from_u32(1).unwrap()]);
+
+            relTx.drain(&mut multiW);
+            relTy.drain(&mut multiW);
         } else {
-            // z = alpha - s
-            const z = alpha[i as number].sub(paramsNIST.c.newScalar(s))
-            let T1 = paramsNIST.g.mul(z)
+
+        }
+    }
+}
+
+/*
+            )
+            relTx.drain(multiW)
+            relTy.drain(multiW)
+        } else {
+            const { z, z2, proof, r1, r2 } = pi[i as number]
+            if (!(z && z2 && proof && r1 && r2)) {
+                throw new Error('params not found')
+            }
+            const resp = { z, z2, proof, r1, r2 }
+            let T1 = paramsNIST.g.mul(resp.z)
+            const relA = new Relation(paramsNIST.c)
+            relA.insertM(
+                [T1, Clambda, pi[i as number].A.neg(), paramsNIST.h],
+                [
+                    paramsNIST.c.newScalar(BigInt(1)),
+                    paramsNIST.c.newScalar(BigInt(1)),
+                    paramsNIST.c.newScalar(BigInt(1)),
+                    resp.z2,
+                ]
+            )
+            relA.drain(multiN)
+
             if (Q) {
                 T1 = T1.add(Q)
             }
+
             const coordT1 = T1.toAffine()
             if (!coordT1) {
                 throw new Error('T1 is at infinity')
             }
-            const { x, y } = coordT1,
-                T1x = paramsWario.commit(x),
-                T1y = paramsWario.commit(y),
-                // alpha R - s R = z R => T1 + P = T
-                pointAddProof = await provePointAdd(
+
+            const sx = paramsWario.c.newScalar(coordT1.x),
+                sy = paramsWario.c.newScalar(coordT1.y),
+                T1x = paramsWario.g.dblmul(sx, paramsWario.h, resp.r1),
+                T1y = paramsWario.g.dblmul(sy, paramsWario.h, resp.r2)
+            if (
+                !(await aggregatePointAdd(
                     paramsWario,
-                    T1,
-                    P,
-                    T[i as number],
                     T1x,
                     T1y,
                     Px,
                     Py,
-                    Tx[i as number],
-                    Ty[i as number]
-                )
-
-            proof = new ExpProof(
-                A[i as number],
-                Tx[i as number].p,
-                Ty[i as number].p,
-                undefined,
-                undefined,
-                undefined,
-                undefined,
-                z,
-                r[i as number].sub(Cs.r),
-                pointAddProof,
-                T1x.r,
-                T1y.r
-            )
+                    pi[i as number].Tx,
+                    pi[i as number].Ty,
+                    resp.proof,
+                    multiW
+                ))
+            ) {
+                return false
+            }
         }
-        allProofs[i as number] = proof
-        challenge >>= BigInt(1)
     }
-    return allProofs
+    return multiW.evaluate().isIdentity() && multiN.evaluate().isIdentity()
 } */
-
-
 
