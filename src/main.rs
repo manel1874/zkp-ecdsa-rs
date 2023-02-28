@@ -379,7 +379,7 @@ fn main() {
 
         println!{"Vector is {:?}", paddedBits};
 
-        let vec_shuffled = generate_indices(3, 5);
+        let vec_shuffled = generate_indices(5);
 
         println!("Shuffled vector is: {vec_shuffled:?}");
         
