@@ -10,7 +10,7 @@ mod exp;
 
 pub use crate::commit::{pedersen, equality, mult};
 pub use crate::exp::pointAdd::{prove_point_add, verify_point_add};
-pub use crate::exp::exp::{padded_bits, generate_indices}; 
+pub use crate::exp::exp::{padded_bits, generate_indices, prov_exp, verify_exp}; 
 
 
 
@@ -386,24 +386,87 @@ fn main() {
         
     }
 
-    {
-        /*
-        
-        Build order:
-        1.
-        - pointAdd -< DONE
-        - exp
+{       // ====== CHECK THE EXP FUNCTIONS ====== //
 
-        2.
-        - interpolate
-        - gk
+    let mut ctx = BigNumContext::new().unwrap();
+
+    let nist_params = pedersen::generate_pedersen_params(&group);
+    let tom_params = pedersen::generate_pedersen_params(&tom_group);
+    
+    let nist_g = group.generator();
+    let tom_g = tom_group.generator();
+
+    let mut nist_order = BigNum::new().unwrap();
+    group.order(&mut nist_order, &mut ctx).unwrap();
+
+    let mut tom_order = BigNum::new().unwrap();
+    tom_group.order(&mut tom_order, &mut ctx).unwrap();
+    
+    // ============== Generate commitments & points
+
+    // (x, y) = lambda g = P
+    
+    let secparam = 80;
+
+    // commitment lambda
+    let lambda = pedersen::generate_random(&nist_order).unwrap(); 
+    let Clambda = nist_params.commit(&lambda);
+
+    // =======              P = lambda g
+    let mut P = EcPoint::new(&nist_params.c).unwrap();
+    P.mul(&group, &nist_g, &lambda, &mut ctx).unwrap();
+
+    // commitment PX, PY
+    let mut x = BigNum::new().unwrap();
+    let mut y = BigNum::new().unwrap();
+
+    P.affine_coordinates_gfp(&nist_params.c, &mut x, &mut y, &mut ctx).unwrap();
+    let PX = tom_params.commit(&x);
+    let PY = tom_params.commit(&y);
+
+    let PX_point = PX.p.to_owned(&tom_params.c).unwrap();
+    let PY_point = PY.p.to_owned(&tom_params.c).unwrap();
 
 
-        Note: 1. and 2. can be built in parallel.
+    // ============== Test true 
 
-        Confirmar que posso usar em weiestrass mode e comparar as dimensões. São as mesmas.
-        
-         */
-    }
+    let pi_point_add = prov_exp(
+        &nist_params, 
+        &tom_params, 
+        lambda, 
+        Clambda.to_owned(),
+        P.to_owned(&nist_params.c).unwrap(),
+        PX.to_owned(),
+        PY.to_owned(),
+        secparam,
+        None
+    );
+
+/*     paramsNIST: &'a PedersenParams<'a>,
+    paramsWario: &'a PedersenParams<'a>,
+    Clambda : EcPoint,
+    Px: EcPoint,
+    Py: EcPoint,
+    pi: &'a Vec<ExpProof<'a>>,
+    secparam: usize,
+    Q: Option<EcPoint>, */
+
+    let ver_exp_true = verify_exp(
+        &nist_params, 
+        &tom_params, 
+        Clambda.p,
+        PX_point,
+        PY_point,
+        &pi_point_add,
+        secparam,
+        None
+    );
+
+    //let ver_pa_true = verify_point_add(&tom_pparams, PX_point, PY_point, QX_point, QY_point, RX_point, RY_point, &pi_point_add);
+    //println!("pointAdd proof is working: {}", ver_pa_true);
+    //assert_eq!(ver_pa_true, true);
+
+}
+
 
 }
