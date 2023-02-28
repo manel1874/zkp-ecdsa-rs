@@ -353,9 +353,9 @@ pub fn verify_exp<'a>(
 
     multiW.add_known(paramsWario.g.to_owned(&paramsWario.c).unwrap());
     multiW.add_known(paramsWario.h.to_owned(&paramsWario.c).unwrap());
-    multiN.add_known(paramsNIST.g.to_owned(&paramsWario.c).unwrap());
-    multiN.add_known(paramsNIST.h.to_owned(&paramsWario.c).unwrap());
-    multiN.add_known(Clambda.to_owned(&paramsWario.c).unwrap());
+    multiN.add_known(paramsNIST.g.to_owned(&paramsNIST.c).unwrap());
+    multiN.add_known(paramsNIST.h.to_owned(&paramsNIST.c).unwrap());
+    multiN.add_known(Clambda.to_owned(&paramsNIST.c).unwrap());
 
     // Compute challenge c = H (Cx, Cy, A, Tx, Ty)
     let mut arr : Vec<&EcPoint> = Vec::with_capacity(3*secparam+2);
@@ -431,8 +431,8 @@ pub fn verify_exp<'a>(
 
             // Compute -Tx
             let minus_1 = BigNum::from_dec_str("-1").unwrap(); 
-            let mut minus_t_x = EcPoint::new(&paramsNIST.c).unwrap();
-            minus_t_x.mul(&paramsNIST.c, t_x, &minus_1, &mut ctx).unwrap();
+            let mut minus_t_x = EcPoint::new(&paramsWario.c).unwrap();
+            minus_t_x.mul(&paramsWario.c, t_x, &minus_1, &mut ctx).unwrap();
             relTx.insert_m(
                 &[paramsWario.g.to_owned(&paramsWario.c).unwrap(),
                 paramsWario.h.to_owned(&paramsWario.c).unwrap(),
@@ -443,8 +443,8 @@ pub fn verify_exp<'a>(
 
             // Compute -Ty
             let minus_1 = BigNum::from_dec_str("-1").unwrap(); 
-            let mut minus_t_y = EcPoint::new(&paramsNIST.c).unwrap();
-            minus_t_y.mul(&paramsNIST.c, t_y, &minus_1, &mut ctx).unwrap();
+            let mut minus_t_y = EcPoint::new(&paramsWario.c).unwrap();
+            minus_t_y.mul(&paramsWario.c, t_y, &minus_1, &mut ctx).unwrap();
             relTx.insert_m(
                 &[paramsWario.g.to_owned(&paramsWario.c).unwrap(),
                 paramsWario.h.to_owned(&paramsWario.c).unwrap(),

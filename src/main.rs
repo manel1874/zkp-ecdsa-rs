@@ -462,9 +462,8 @@ fn main() {
         None
     );
 
-    //let ver_pa_true = verify_point_add(&tom_pparams, PX_point, PY_point, QX_point, QY_point, RX_point, RY_point, &pi_point_add);
-    //println!("pointAdd proof is working: {}", ver_pa_true);
-    //assert_eq!(ver_pa_true, true);
+    println!("verifyExp proof is working: {}", ver_exp_true);
+    assert_eq!(ver_exp_true, true);
 
 }
 
