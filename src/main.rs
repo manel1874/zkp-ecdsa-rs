@@ -7,6 +7,7 @@ use openssl::hash::MessageDigest;
 mod commit; 
 mod curves;
 mod exp;
+mod signature;
 
 pub use crate::commit::{pedersen, equality, mult};
 pub use crate::exp::pointAdd::{prove_point_add, verify_point_add};
